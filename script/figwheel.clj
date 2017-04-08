@@ -1,25 +1,11 @@
 (require '[figwheel-sidecar.repl-api :as ra])
+(require '[figwheel-sidecar.system :as fig])
 
-(ra/start-figwheel! '{:build-ids  ["background-dev" "popup-dev"]
-                      :all-builds [{:id           "popup-dev"
-                                    :figwheel     true
-                                    :source-paths ["src/popup" "src/dev"]
-                                    :compiler     {:main                 cljs.user
-                                                   :output-to            "browsers/chrome/js/dev/ygq.js"
-                                                   :output-dir           "browsers/chrome/js/dev"
-                                                   :asset-path           "js/dev"
-                                                   :source-map-timestamp true
-                                                   :preloads             [devtools.preload]
-                                                   :optimizations        :none}}
+(defn project-builds []
+  (let [[_ _ _ & {:as settings}] (-> (slurp "project.clj")
+                                     (read-string))]
+    (get-in settings [:cljsbuild :builds])))
 
-                                   {:id           "background-dev"
-                                    :figwheel     true
-                                    :source-paths ["src/background"]
-                                    :compiler     {:main                 ygq.background.main
-                                                   :output-to            "browsers/chrome/js/background-dev/ygq.js"
-                                                   :output-dir           "browsers/chrome/js/background-dev"
-                                                   :asset-path           "js/background-dev"
-                                                   :source-map-timestamp true
-                                                   :preloads             [devtools.preload]
-                                                   :optimizations        :none}}]})
+(ra/start-figwheel! {:build-ids ["background-dev" "popup-dev"]
+                     :all-builds (project-builds)})
 (ra/cljs-repl)

@@ -13,12 +13,12 @@
 
   :plugins [[lein-figwheel "0.5.9"]]
 
-  :source-paths ["src/popup" "src/dev" "src/background"]
+  :source-paths ["src/popup" "src/background" "src/shared"]
 
   :cljsbuild {:builds [{:id           "popup-dev"
                         :figwheel     true
-                        :source-paths ["src/popup" "src/dev"]
-                        :compiler     {:main                 cljs.user
+                        :source-paths ["src/popup" "src/shared"]
+                        :compiler     {:main                 ygq.popup.main
                                        :output-to            "browsers/chrome/js/dev/ygq.js"
                                        :output-dir           "browsers/chrome/js/dev"
                                        :asset-path           "js/dev"
@@ -28,7 +28,7 @@
 
                        {:id           "background-dev"
                         :figwheel     true
-                        :source-paths ["src/background"]
+                        :source-paths ["src/background" "src/shared"]
                         :compiler     {:main                 ygq.background.main
                                        :output-to            "browsers/chrome/js/background-dev/ygq.js"
                                        :output-dir           "browsers/chrome/js/background-dev"

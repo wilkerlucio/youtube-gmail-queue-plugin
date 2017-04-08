@@ -78,8 +78,8 @@
   (let [res (read-from* env reader)]
     (if (= res ::continue) nil res)))
 
-(defn continue-with-reader [{:keys [parser ast] :as env} reader]
-  (parser (assoc env ::reader reader) (:query ast)))
+(defn continue-with-reader [{:keys [parser ast query] :as env} reader]
+  (parser (assoc env ::reader reader) query))
 
 ;; NODE HELPERS
 

@@ -1,4 +1,22 @@
-(ns ygq.background.main)
+(ns ygq.background.main
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require [cljs.core.async :as async :refer [<!]]))
+
+(defn get-auth-token [options]
+  (let [c (async/promise-chan)]
+    (.getAuthToken js/chrome.identity
+                   (clj->js options)
+                   #(do
+                      (async/put! c %)
+                      (async/close! c)))
+    c))
+
+(defonce auth-token (atom nil))
+
+(defn request-token []
+  (go
+    (let [token (<! (get-auth-token {:interactive true}))]
+      (reset! auth-token token))))
 
 (defn setup-popup-activation []
   (js/chrome.runtime.onInstalled.addListener
@@ -14,4 +32,4 @@
                   #js [(js/chrome.declarativeContent.ShowPageAction.)]}]))))))
 
 (setup-popup-activation)
-(js/console.log "Initialized")
+(request-token)
