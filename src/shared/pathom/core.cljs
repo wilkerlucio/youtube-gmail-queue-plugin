@@ -81,6 +81,21 @@
 (defn continue-with-reader [{:keys [parser ast query] :as env} reader]
   (parser (assoc env ::reader reader) query))
 
+(def built-in-coercions
+  {`int?     #(js/parseInt %)
+   `nat-int? #(js/parseInt %)
+   `pos-int? #(js/parseInt %)})
+
+(defn spec->coerce-sym [spec]
+  (try (s/form spec) (catch :default _ nil)))
+
+(defn coerce [key value]
+  (let [form (spec->coerce-sym key)
+        coerce-fn (get built-in-coercions form identity)]
+    (if (string? value)
+      (coerce-fn value)
+      value)))
+
 ;; NODE HELPERS
 
 (defn placeholder-node [{:keys [ast parser] :as env}]

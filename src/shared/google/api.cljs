@@ -4,9 +4,18 @@
             [cljs.core.async :as async :refer [<!]]
             [goog.crypt.base64 :as gb]
             [clojure.string :as str]
-            [pathom.core :as p])
+            [pathom.core :as p]
+            [cljs.spec :as s])
   (:import goog.Uri
            goog.Uri.QueryData))
+
+(s/def :youtube.video/title string?)
+(s/def :youtube.video/published-at inst?)
+
+(s/def :youtube.video/view-count nat-int?)
+(s/def :youtube.video/like-count nat-int?)
+(s/def :youtube.video/dislike-count nat-int?)
+(s/def :youtube.video/comment-count nat-int?)
 
 (defn get-auth-token [options]
   (let [c (async/promise-chan)]
