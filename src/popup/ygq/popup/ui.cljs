@@ -15,6 +15,10 @@
              (let [video-url (str "https://www.youtube.com/watch?v=" id)]
                (js/chrome.tabs.update #js {:url video-url})))})
 
+(defmethod mutate 'youtube.video/mark-watched [{:keys [state ref]} _ {::video/keys [id]}]
+  {:action (fn []
+             (swap! state assoc-in [::video/by-id id ::video/watched?] true))})
+
 (defn pd [f]
   (fn [e]
     (.preventDefault e)
@@ -23,6 +27,9 @@
 (defn get-load-query [comp]
   (conj (om/get-query comp) :ui/fetch-state))
 
+(defn icon [name]
+  (dom/span #js {:className (str "glyphicon glyphicon-" name)}))
+
 (om/defui ^:once QueuedVideo
   static uc/InitialAppState
   (initial-state [_ title] {::video/id    (random-uuid)
@@ -30,6 +37,7 @@
 
   static om/IQuery
   (query [_] [::video/id
+              ::video/watched?
               {::video/snippet
                [::video/title
                 ::video/channel-title
@@ -47,21 +55,33 @@
         {:parallel true})))
 
   (render [this]
-    (let [{::video/keys [id snippet]} (om/props this)
+    (let [{::video/keys [id snippet watched?]} (om/props this)
           {::video/keys [title channel-title thumbnails]} snippet]
-      (dom/div #js {:className "video--row"}
+      (dom/div #js {:className (cond-> "video--row"
+                                 watched? (str " video--row--watched"))}
         (dom/img #js {:src       (get-in thumbnails [:youtube.thumbnail/default :youtube.thumbnail/url])
                       :className "video--thumbnail"})
-        (dom/div nil
+        (dom/div #js {:className "flex-column"}
           (dom/div #js {:className "video--title"}
             (dom/a #js {:href    "#"
-                        :onClick (pd #(om/transact! this `[(video/navigate {::video/id ~id})]))}
+                        :onClick (pd #(om/transact! this `[(video/navigate {::video/id ~id})
+                                                           (video/mark-watched {::video/id ~id})]))}
               title))
-          (dom/div #js {:className "channel--title"} channel-title))))))
+          (dom/div #js {:className "video--channel-title"} channel-title)
+          (dom/div #js {:className "video--actions"}
+            (dom/a #js {:className "video--action"}
+              (icon "plus"))
+            (if-not watched?
+              (dom/a #js {:className "video--action"
+                          :href      "#"
+                          :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id})]))}
+                (icon "ok")))
+            (dom/a #js {:className "video--action"}
+              (icon "remove"))))))))
 
 (def queued-video (om/factory QueuedVideo))
 
-(defn load-text [text]
+(defn center-text [text]
   (dom/div #js {:className "loading-container"} text))
 
 (om/defui ^:once Root
@@ -77,7 +97,9 @@
       (dom/div #js {:key react-key}
         (dom/div nil
           (if (df/loading? (:ui/fetch-state queue))
-            (load-text "Loading video list...")
-            (mapv queued-video queue)))))))
+            (center-text "Loading video list...")
+            (if (empty? queue)
+              (center-text "No videos left to watch.")
+              (mapv queued-video queue))))))))
 
 (def root (om/factory Root))

@@ -4,17 +4,35 @@ body {
   height: 500px;
 }
 
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
 .video--row {
   display: flex;
-  border-bottom: 2px solid #000;
+  border-bottom: 2px solid #3e3e3e;
   padding-top: 10px;
   padding-bottom: 6px;
   height: 96px;
   background: #fff;
 }
 
+.video--row--watched {
+  background: #ccc;
+}
+
 .video--title {
   font-weight: bold;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  width: 350px;
+}
+
+.video--actions {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
 }
 
 img.video--thumbnail {
@@ -30,4 +48,10 @@ img.video--thumbnail {
   color: #68b2f3;
   font-weight: bold;
   font-size: 28px;
+}
+
+.video--action {
+  color: #000;
+  margin: 0 5px 0;
+  padding: 3px 3px 4px 5px;
 }
