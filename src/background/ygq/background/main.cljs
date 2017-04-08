@@ -5,22 +5,6 @@
             [ygq.background.parser :as p]
             [google.api :as g]))
 
-(defn get-auth-token [options]
-  (let [c (async/promise-chan)]
-    (.getAuthToken js/chrome.identity
-                   (clj->js options)
-                   #(do
-                      (async/put! c %)
-                      (async/close! c)))
-    c))
-
-(defonce auth-token (atom nil))
-
-(defn request-token []
-  (go
-    (let [token (<! (get-auth-token {:interactive true}))]
-      (reset! auth-token token))))
-
 (defn setup-popup-activation []
   (js/chrome.runtime.onInstalled.addListener
     (fn []
@@ -35,7 +19,7 @@
                   #js [(js/chrome.declarativeContent.ShowPageAction.)]}]))))))
 
 (setup-popup-activation)
-(request-token)
+(g/request-token)
 
 (defonce comm-listener
   (go
@@ -44,7 +28,7 @@
         (when-let [{::rpc/keys [payload send-response]} (<! rpc)]
           (let [[k x] payload]
             (case k
-              :app/graph (send-response (<! (p/parse {::g/access-token @auth-token} x)))
+              :app/graph (send-response (<! (p/parse (g/auth-env) x)))
               :app/ping (send-response {:complex "Pong"})
               (do
                 (js/console.info "Can't handle message" k)

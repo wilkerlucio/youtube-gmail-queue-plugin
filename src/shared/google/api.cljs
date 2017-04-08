@@ -8,6 +8,24 @@
   (:import goog.Uri
            goog.Uri.QueryData))
 
+(defn get-auth-token [options]
+  (let [c (async/promise-chan)]
+    (.getAuthToken js/chrome.identity
+                   (clj->js options)
+                   #(do
+                      (async/put! c %)
+                      (async/close! c)))
+    c))
+
+(defonce auth-token (atom nil))
+
+(defn request-token []
+  (go
+    (let [token (<! (get-auth-token {:interactive true}))]
+      (reset! auth-token token))))
+
+(defn auth-env [] {::access-token @auth-token})
+
 (defn fetch
   ([uri] (fetch uri {}))
   ([uri options]

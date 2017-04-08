@@ -5,16 +5,8 @@
             [ygq.popup.ui :as ui]
             [cljs.core.async :as async]
             [om.next :as om]
-            [chrome.rpc :as rpc]))
-
-(defn get-auth-token [options]
-  (let [c (async/promise-chan)]
-    (.getAuthToken js/chrome.identity
-                   (clj->js options)
-                   #(do
-                      (async/put! c %)
-                      (async/close! c)))
-    c))
+            [chrome.rpc :as rpc]
+            [google.api :refer [get-auth-token]]))
 
 (defn request-token [reconciler]
   (go
