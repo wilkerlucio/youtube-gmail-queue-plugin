@@ -6,7 +6,23 @@
             [cljs.core.async :as async]
             [om.next :as om]
             [chrome.rpc :as rpc]
-            [google.api :refer [get-auth-token]]))
+            [google.api :refer [get-auth-token]]
+            [untangled.client.impl.network :as un]
+            [untangled.client.data-fetch :as df]))
+
+(defrecord Network [complete-app]
+  un/NetworkBehavior
+  (serialize-requests? [this] true)
+
+  un/UntangledNetwork
+  (send [this edn ok error]
+    (let [res (<! (rpc/send [:app/graph edn]))]
+      (ok res)))
+
+  (start [this app]
+    (assoc this :complete-app app)))
+
+(defn make-network [] (map->Network {}))
 
 (defn request-token [reconciler]
   (go
@@ -15,8 +31,11 @@
 
 (defonce app
   (atom (uc/new-untangled-client
+          :network (make-network)
           :started-callback (fn [app]
-                              (request-token (:reconciler app))))))
+                              (go
+                                (<! (request-token (:reconciler app)))
+                                (df/load app :video/queue ui/QueuedVideo))))))
 
 (defn setup-comm []
   (go
