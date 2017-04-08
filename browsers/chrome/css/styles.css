@@ -2,3 +2,19 @@ body {
   width: 500px;
   height: 500px;
 }
+
+.video--row {
+  display: flex;
+  border-bottom: 2px solid #000;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  height: 96px;
+}
+
+.video--title {
+  font-weight: bold;
+}
+
+img.video--thumbnail {
+  margin: 0 9px;
+}

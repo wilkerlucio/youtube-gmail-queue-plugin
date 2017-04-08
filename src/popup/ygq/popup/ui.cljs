@@ -10,14 +10,29 @@
   {:action (fn []
              (swap! state assoc :app/user-token token))})
 
+(defmethod mutate 'youtube.video/navigate [_ _ {::video/keys [id]}]
+  {:action (fn []
+             (let [video-url (str "https://www.youtube.com/watch?v=" id)]
+               (js/chrome.tabs.update #js {:url video-url})))})
+
+(defn pd [f]
+  (fn [e]
+    (.preventDefault e)
+    (f e)))
+
 (om/defui ^:once QueuedVideo
   static uc/InitialAppState
   (initial-state [_ title] {::video/id   (random-uuid)
-                            :video/title title})
+                            ::video/title title})
 
   static om/IQuery
   (query [_] [::video/id
-              {::video/snippet [::video/title]}])
+              {::video/snippet
+               [::video/title
+                ::video/channel-title
+                {::video/thumbnails
+                 [{:youtube.thumbnail/default
+                   [:youtube.thumbnail/url]}]}]}])
 
   static om/Ident
   (ident [_ props] [::video/by-id (::video/id props)])
@@ -30,9 +45,16 @@
 
   (render [this]
     (let [{::video/keys [id snippet]} (om/props this)
-          {::video/keys [title]} snippet]
-      (dom/div nil
-        "Video " (str title)))))
+          {::video/keys [title channel-title thumbnails]} snippet]
+      (dom/div #js {:className "video--row"}
+        (dom/img #js {:src (get-in thumbnails [:youtube.thumbnail/default :youtube.thumbnail/url])
+                      :className "video--thumbnail"})
+        (dom/div nil
+          (dom/div #js {:className "video--title"}
+            (dom/a #js {:href "#"
+                        :onClick (pd #(om/transact! this `[(video/navigate {::video/id ~id})]))}
+              title))
+          (dom/div #js {:className "channel--title"} channel-title))))))
 
 (def queued-video (om/factory QueuedVideo))
 
