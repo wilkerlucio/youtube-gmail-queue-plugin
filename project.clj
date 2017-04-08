@@ -9,7 +9,8 @@
                  [figwheel-sidecar "0.5.9"]
                  [org.omcljs/om "1.0.0-alpha48"]
                  [navis/untangled-client "0.8.2-SNAPSHOT"]
-                 [binaryage/devtools "0.9.2"]]
+                 [binaryage/devtools "0.9.2"]
+                 [com.cognitect/transit-cljs "0.8.239"]]
 
   :plugins [[lein-figwheel "0.5.9"]]
 

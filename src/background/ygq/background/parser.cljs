@@ -17,7 +17,7 @@
                     <!
                     :messages first
                     g/message->youtube-id))
-    (get entity (:dispatch-key ast))))
+    (get entity (:dispatch-key ast) ::p/continue)))
 
 (def root-endpoints
   {:video/queue
@@ -34,13 +34,18 @@
 (def parser (om/parser {:read   p/read
                         :mutate mutate}))
 
-(def auth-token @ygq.background.main/auth-token)
+(defn parse [env tx]
+  (-> (parser
+        (assoc env
+          ::p/reader root-endpoints
+          ::cache (atom {}))
+        tx)
+      (p/read-chan-values)))
+
 (comment
-
-
   (go
     (-> (parser {::p/reader       root-endpoints
-                 ::g/access-token auth-token}
+                 ::g/access-token @ygq.background.main/auth-token}
                 [{:video/queue [:youtube.video/id]}])
         (p/read-chan-values)
         <! js/console.log)))

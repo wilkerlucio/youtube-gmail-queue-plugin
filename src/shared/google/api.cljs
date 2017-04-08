@@ -77,8 +77,6 @@
                                              :part         (str/join "," parts)}))
         <! :items first)))
 
-(def auth-token @ygq.background.main/auth-token)
-
 (comment
   (go
     (-> (youtube-queue-ids {::access-token auth-token}) <!
