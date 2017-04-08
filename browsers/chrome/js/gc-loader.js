@@ -14,4 +14,3 @@ setTimeout(function () {
   requireFile("js/dev/cljs_deps.js");
   requireFile("js/start.js");
 }, 10);
-
