@@ -16,8 +16,9 @@
 
   un/UntangledNetwork
   (send [this edn ok error]
-    (let [res (<! (rpc/send [:app/graph edn]))]
-      (ok res)))
+    (go
+      (let [res (<! (rpc/send [:app/graph edn]))]
+        (ok res))))
 
   (start [this app]
     (assoc this :complete-app app)))
@@ -31,7 +32,7 @@
 
 (defonce app
   (atom (uc/new-untangled-client
-          :network (make-network)
+          :networking (make-network)
           :started-callback (fn [app]
                               (go
                                 (<! (request-token (:reconciler app)))

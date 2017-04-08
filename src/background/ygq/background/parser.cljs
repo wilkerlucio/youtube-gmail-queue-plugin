@@ -11,13 +11,14 @@
 
 (defmethod mutate 'some/action [_ _ _])
 
-(defn camel-key-reader [{:keys [::entity parser query] :as env}]
-  (let [key (get-in env [:ast :key])
-        key' (-> key name gstr/toCamelCase keyword)
-        value (get entity key' ::p/continue)]
-    (if (map? value)
-      (parser (assoc env ::entity value) query)
-      (p/coerce key value))))
+(defn camel-key-reader [{{:keys [key]} :ast :keys [::entity parser query] :as env}]
+  (if (contains? entity key)
+    (get entity key)
+    (let [key' (-> key name gstr/toCamelCase keyword)
+          value (get entity key' ::p/continue)]
+      (if (map? value)
+        (parser (assoc env ::entity value) query)
+        (p/coerce key value)))))
 
 (def root-endpoints
   {:video/queue
@@ -42,8 +43,8 @@
       (case k
         :youtube.video/by-id
         (go
-          (let [video (<! (g/youtube-details #:youtube.video{:id    id
-                                                             :parts (query->parts query)
+          (let [video (<! (g/youtube-details #:youtube.video{:id              id
+                                                             :parts           (query->parts query)
                                                              ::g/access-token access-token}))]
             (p/continue-with-reader (assoc env ::entity video)
                                     camel-key-reader)))
