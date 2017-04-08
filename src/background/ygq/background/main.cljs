@@ -60,5 +60,5 @@
           (recur)))))
 
   (go
-    (let [res (<! (rpc/send [:app/tx [{:value [:bla]}]]))]
+    (let [res (<! (rpc/send [:app/transact! '[(some/mutation {:a 1})]]))]
       (js/console.log "RES" res))))
