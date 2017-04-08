@@ -22,3 +22,10 @@
 
 (defmacro <!expand [value]
   `(cljs.core.async/<! (common.async/expand-value ~value)))
+
+(defmacro <!cache [cache key & body]
+  `(if-let [[_ v#] (find (deref ~cache) ~key)]
+     v#
+     (let [v# (cljs.core.async/<! (do ~@body))]
+       (swap! ~cache assoc ~key v#)
+       v#)))

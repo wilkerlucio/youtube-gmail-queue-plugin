@@ -25,18 +25,11 @@
 
 (defn make-network [] (map->Network {}))
 
-(defn request-token [reconciler]
-  (go
-    (let [token (<! (get-auth-token {:interactive true}))]
-      (om/transact! reconciler `[(auth/token-received {:token ~token})]))))
-
 (defonce app
   (atom (uc/new-untangled-client
           :networking (make-network)
           :started-callback (fn [app]
-                              (go
-                                (<! (request-token (:reconciler app)))
-                                (df/load app :video/queue ui/QueuedVideo))))))
+                              (df/load app :video/queue ui/QueuedVideo)))))
 
 (defn setup-comm []
   (go

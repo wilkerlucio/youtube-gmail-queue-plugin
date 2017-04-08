@@ -1,11 +1,14 @@
 (ns ygq.background.parser
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go]]
+                   [common.async :refer [<!cache]])
   (:require [pathom.core :as p]
             [om.next :as om]
             [om.util :as omu]
             [goog.string :as gstr]
             [google.api :as g]
             [cljs.core.async :refer [<!]]))
+
+(defonce ^:private cache* (atom {}))
 
 (defmulti mutate om/dispatch)
 
@@ -22,9 +25,9 @@
 
 (def root-endpoints
   {:video/queue
-   (fn [{:keys [::g/access-token] :as env}]
+   (fn [{:keys [::g/access-token ::cache] :as env}]
      (go
-       (let [videos (<! (g/youtube-queue-ids env))]
+       (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids env))]
          (<! (p/read-chan-seq
                #(p/read-chan-values
                   (p/continue-with-reader (assoc env ::entity %)
@@ -37,15 +40,16 @@
        (map (comp gstr/toCamelCase name :key))
        (set)))
 
-(defn youtube-reader [{:keys [query parser ::g/access-token] :as env}]
+(defn youtube-reader [{:keys [query parser ::g/access-token ::cache] :as env}]
   (let [key (get-in env [:ast :key])]
     (if-let [[k id] (and (omu/ident? key) key)]
       (case k
         :youtube.video/by-id
         (go
-          (let [video (<! (g/youtube-details #:youtube.video{:id              id
-                                                             :parts           (query->parts query)
-                                                             ::g/access-token access-token}))]
+          (let [video (<!cache cache key
+                        (g/youtube-details #:youtube.video{:id              id
+                                                           :parts           (query->parts query)
+                                                           ::g/access-token access-token}))]
             (p/continue-with-reader (assoc env ::entity video)
                                     camel-key-reader)))
 
@@ -59,7 +63,7 @@
   (-> (parser
         (assoc env
           ::p/reader [root-endpoints youtube-reader]
-          ::cache (atom {}))
+          ::cache cache*)
         tx)
       (p/read-chan-values)))
 

@@ -20,9 +20,12 @@
     (.preventDefault e)
     (f e)))
 
+(defn get-load-query [comp]
+  (conj (om/get-query comp) :ui/fetch-state))
+
 (om/defui ^:once QueuedVideo
   static uc/InitialAppState
-  (initial-state [_ title] {::video/id   (random-uuid)
+  (initial-state [_ title] {::video/id    (random-uuid)
                             ::video/title title})
 
   static om/IQuery
@@ -47,11 +50,11 @@
     (let [{::video/keys [id snippet]} (om/props this)
           {::video/keys [title channel-title thumbnails]} snippet]
       (dom/div #js {:className "video--row"}
-        (dom/img #js {:src (get-in thumbnails [:youtube.thumbnail/default :youtube.thumbnail/url])
+        (dom/img #js {:src       (get-in thumbnails [:youtube.thumbnail/default :youtube.thumbnail/url])
                       :className "video--thumbnail"})
         (dom/div nil
           (dom/div #js {:className "video--title"}
-            (dom/a #js {:href "#"
+            (dom/a #js {:href    "#"
                         :onClick (pd #(om/transact! this `[(video/navigate {::video/id ~id})]))}
               title))
           (dom/div #js {:className "channel--title"} channel-title))))))
@@ -60,19 +63,18 @@
 
 (om/defui ^:once Root
   static uc/InitialAppState
-  (initial-state [_ _] {:video/queue []})
+  (initial-state [_ _] {})
 
   static om/IQuery
-  (query [_] [{:video/queue (om/get-query QueuedVideo)} :ui/react-key :app/user-token])
+  (query [_] [{:video/queue (get-load-query QueuedVideo)} :ui/react-key])
 
   Object
   (render [this]
-    (let [{:keys     [ui/react-key video/queue]
-           :app/keys [user-token]} (om/props this)]
+    (let [{:keys [ui/react-key video/queue]} (om/props this)]
       (dom/div #js {:key react-key}
-        (if user-token
-          (dom/div nil
-            (mapv queued-video queue))
-          "Logging in...")))))
+        (dom/div nil
+          (if (df/loading? (:ui/fetch-state queue))
+            "Loading video list..."
+            (mapv queued-video queue)))))))
 
 (def root (om/factory Root))

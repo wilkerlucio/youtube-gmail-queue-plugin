@@ -19,11 +19,11 @@
                   #js [(js/chrome.declarativeContent.ShowPageAction.)]}]))))))
 
 (setup-popup-activation)
-(g/request-token)
 
 (defonce comm-listener
   (go
     (let [rpc (rpc/listen (async/chan 10))]
+      (<! (g/request-token))
       (loop []
         (when-let [{::rpc/keys [payload send-response]} (<! rpc)]
           (let [[k x] payload]
