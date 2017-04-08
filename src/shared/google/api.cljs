@@ -31,7 +31,8 @@
 (defn request-token []
   (go
     (let [token (<! (get-auth-token {:interactive true}))]
-      (reset! auth-token token))))
+      (reset! auth-token token)
+      token)))
 
 (defn auth-env [] {::access-token @auth-token})
 

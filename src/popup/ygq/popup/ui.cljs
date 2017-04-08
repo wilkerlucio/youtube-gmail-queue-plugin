@@ -61,6 +61,9 @@
 
 (def queued-video (om/factory QueuedVideo))
 
+(defn load-text [text]
+  (dom/div #js {:className "loading-container"} text))
+
 (om/defui ^:once Root
   static uc/InitialAppState
   (initial-state [_ _] {})
@@ -74,7 +77,7 @@
       (dom/div #js {:key react-key}
         (dom/div nil
           (if (df/loading? (:ui/fetch-state queue))
-            "Loading video list..."
+            (load-text "Loading video list...")
             (mapv queued-video queue)))))))
 
 (def root (om/factory Root))
