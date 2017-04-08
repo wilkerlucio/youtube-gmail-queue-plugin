@@ -8,8 +8,10 @@
       <sourceFolder url="file://$MODULE_DIR$/src/popup" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/resources" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/dev" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/background" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/dev-resources" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/browsers/chrome/js/background-dev" />
       <excludeFolder url="file://$MODULE_DIR$/browsers/chrome/js/dev" />
       <excludeFolder url="file://$MODULE_DIR$/out" />
       <excludeFolder url="file://$MODULE_DIR$/resources/public/js" />
