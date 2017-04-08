@@ -5,7 +5,7 @@
             [ygq.background.parser :as p]
             [google.api :as g]))
 
-(defn setup-popup-activation []
+(defn setup-popup-activation [url]
   (js/chrome.runtime.onInstalled.addListener
     (fn []
       (js/chrome.declarativeContent.onPageChanged.removeRules
@@ -13,22 +13,22 @@
           (js/chrome.declarativeContent.onPageChanged.addRules
             #js [{:conditions
                   #js [(js/chrome.declarativeContent.PageStateMatcher.
-                         #js {:pageUrl #js {:urlContains "youtube.com"}})]
+                         #js {:pageUrl #js {:urlContains url}})]
 
                   :actions
                   #js [(js/chrome.declarativeContent.ShowPageAction.)]}]))))))
 
-(setup-popup-activation)
+(setup-popup-activation "youtube.com")
 
 (defonce comm-listener
   (go
-    (let [rpc (rpc/listen (async/chan 10))]
-      (<! (g/request-token))
+    (let [rpc (rpc/listen (async/chan 10))
+          token (<! (g/request-token))]
       (loop []
         (when-let [{::rpc/keys [payload send-response]} (<! rpc)]
           (let [[k x] payload]
             (case k
-              :app/graph (send-response (<! (p/parse (g/auth-env) x)))
+              :app/graph (send-response (<! (p/parse {::g/access-token token} x)))
               :app/ping (send-response {:complex "Pong"})
               (do
                 (js/console.info "Can't handle message" k)
