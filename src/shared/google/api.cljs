@@ -97,12 +97,16 @@
          (mapcat thread->youtube-ids)
          (map #(hash-map :youtube.video/id %)))))
 
+(def video-parts #{"contentDetails" "fileDetails" "id" "liveStreamingDetails" "localizations" "player"
+                   "processingDetails" "recordingDetails" "snippet" "statistics" "status" "suggestions"
+                   "topicDetails"})
+
 (defn youtube-details [{::keys              [access-token]
                         :youtube.video/keys [id parts]}]
   (go
     (-> (fetch (api-uri "youtube/v3/videos" {:access_token access-token
                                              :id           id
-                                             :part         (str/join "," parts)}))
+                                             :part         (str/join "," (filter video-parts parts))}))
         <! :items first)))
 
 (comment
