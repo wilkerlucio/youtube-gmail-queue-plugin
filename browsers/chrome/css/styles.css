@@ -30,9 +30,6 @@ body {
 }
 
 .video--actions {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
 }
 
 img.video--thumbnail {
@@ -54,4 +51,27 @@ img.video--thumbnail {
   color: #000;
   margin: 0 5px 0;
   padding: 3px 3px 4px 5px;
+}
+
+.main-actions-row {
+  background: #cc181e;
+  color: #fff;
+  display: flex;
+  border-bottom: 2px solid #3e3e3e;
+  padding: 5px;
+  align-items: baseline;
+}
+
+.main-actions-title {
+  font-weight: bold;
+  font-size: 27px;
+  margin-left: 10px;
+}
+
+.main-actions-row--reload, .main-actions-row--reload:hover {
+  color: #fff;
+}
+
+.flex-space {
+  flex: 1;
 }

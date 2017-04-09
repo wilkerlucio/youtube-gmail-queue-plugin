@@ -74,6 +74,7 @@
                                                            (video/mark-watched {::video/id ~id})]))}
               title))
           (dom/div #js {:className "video--channel-title"} channel-title)
+          (dom/div #js {:className "flex-space"})
           (dom/div #js {:className "video--actions"}
             (dom/a #js {:className "video--action"}
               (icon "plus"))
@@ -108,8 +109,16 @@
         (dom/div nil
           (if (df/loading? (:ui/fetch-state queue))
             (center-text "Loading video list...")
-            (if (empty? queue)
-              (center-text "No videos left to watch.")
-              (mapv queued-video queue))))))))
+            (dom/div nil
+              (dom/div #js {:className "main-actions-row"}
+                (dom/div #js {:className "main-actions-title"} "Youtube Gmail Queue")
+                (dom/div #js {:className "flex-space"})
+                (dom/a #js {:href    "#"
+                            :className "main-actions-row--reload"
+                            :onClick (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}}))}
+                  "Reload queue"))
+              (if (empty? queue)
+                (center-text "No videos left to watch.")
+                (mapv queued-video queue)))))))))
 
 (def root (om/factory Root))

@@ -38,8 +38,9 @@
 
 (def root-endpoints
   {:video/queue
-   (fn [{:keys [::g/access-token ::cache] :as env}]
+   (fn [{:keys [::g/access-token ::cache ast] :as env}]
      (go
+       (if (get-in ast [:params :clear-cache]) (swap! cache dissoc ::queue-ids))
        (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids env))]
          (<! (p/read-chan-seq
                #(p/read-chan-values
