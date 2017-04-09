@@ -6,18 +6,31 @@
             [om.util :as omu]
             [goog.string :as gstr]
             [google.api :as g]
+            [youtube.video :as video]
             [cljs.core.async :refer [<!]]))
 
 (defonce ^:private cache* (atom {}))
 
 (defmulti mutate om/dispatch)
 
-(defmethod mutate 'some/action [_ _ _])
+(defmethod mutate 'youtube.video/mark-watched [{:keys [::g/access-token ::cache]} _ {::video/keys [id]}]
+  {:remote true
+   :action (fn []
+             (swap! cache assoc-in [[::video/by-id id] ::video/watched?] true)
+             (g/mark-message-read {::g/access-token  access-token
+                                   :gmail.message/id (get @g/video-id->message-id id)}))})
+
+(defmethod mutate 'youtube.video/mark-unwatched [{:keys [::g/access-token ::cache]} _ {::video/keys [id]}]
+  {:remote true
+   :action (fn []
+             (swap! cache assoc-in [[::video/by-id id] ::video/watched?] false)
+             (g/mark-message-unread {::g/access-token  access-token
+                                     :gmail.message/id (get @g/video-id->message-id id)}))})
 
 (defn camel-key-reader [{{:keys [key]} :ast :keys [::entity parser query] :as env}]
   (if (contains? entity key)
     (get entity key)
-    (let [key' (-> key name gstr/toCamelCase keyword)
+    (let [key'  (-> key name gstr/toCamelCase keyword)
           value (get entity key' ::p/continue)]
       (if (map? value)
         (parser (assoc env ::entity value) query)
@@ -47,9 +60,9 @@
         :youtube.video/by-id
         (go
           (let [video (<!cache cache key
-                        (g/youtube-details #:youtube.video{:id              id
-                                                           :parts           (query->parts query)
-                                                           ::g/access-token access-token}))]
+                               (g/youtube-details #:youtube.video{:id              id
+                                                                  :parts           (query->parts query)
+                                                                  ::g/access-token access-token}))]
             (p/continue-with-reader (assoc env ::entity video)
                                     camel-key-reader)))
 

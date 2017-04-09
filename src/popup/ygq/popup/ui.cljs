@@ -16,8 +16,14 @@
                (js/chrome.tabs.update #js {:url video-url})))})
 
 (defmethod mutate 'youtube.video/mark-watched [{:keys [state ref]} _ {::video/keys [id]}]
-  {:action (fn []
+  {:remote true
+   :action (fn []
              (swap! state assoc-in [::video/by-id id ::video/watched?] true))})
+
+(defmethod mutate 'youtube.video/mark-unwatched [{:keys [state ref]} _ {::video/keys [id]}]
+  {:remote true
+   :action (fn []
+             (swap! state assoc-in [::video/by-id id ::video/watched?] false))})
 
 (defn pd [f]
   (fn [e]
@@ -75,7 +81,11 @@
               (dom/a #js {:className "video--action"
                           :href      "#"
                           :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id})]))}
-                (icon "ok")))
+                (icon "ok"))
+              (dom/a #js {:className "video--action"
+                          :href      "#"
+                          :onClick   (pd #(om/transact! this `[(video/mark-unwatched {::video/id ~id})]))}
+                (icon "repeat")))
             (dom/a #js {:className "video--action"}
               (icon "remove"))))))))
 
