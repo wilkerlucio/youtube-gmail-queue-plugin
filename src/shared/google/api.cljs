@@ -55,7 +55,7 @@
      (.setQueryData uri (make-query query))
      (.toString uri))))
 
-(defn gmail-threads [{::keys [access-token]}]
+(defn gmail-messages [{::keys [access-token]}]
   (go
     (-> (fetch (api-uri "gmail/v1/users/me/messages" [[:includeSpamTrash false]
                                                       [:labelIds "Label_97618004354056322"]
@@ -67,34 +67,36 @@
                      :gmail.thread/keys [id]}]
   (fetch (api-uri (str "gmail/v1/users/me/threads/" id) [[:access_token access-token]])))
 
+(defn gmail-message [{::keys              [access-token]
+                      :gmail.message/keys [id]}]
+  (fetch (api-uri (str "gmail/v1/users/me/messages/" id) [[:access_token access-token]])))
+
 (defn extract-youtube-id [msg]
   (if-let [[_ id] (re-find #"youtube\.com/watch\?v=([^&]+)" msg)]
     id))
 
-(defn message->youtube-id [msg]
-  (->> msg
-       :payload :parts
-       (filter (comp #{"text/plain" "text/html"} :mimeType))
-       (map (comp extract-youtube-id
-                  #(gb/decodeString % true)
-                  :data :body))
-       (filter some?)
-       first))
+(defonce video-id->message-id (atom {}))
 
-(defn thread->youtube-ids [thread]
-  (->> thread
-       :messages
-       (map message->youtube-id)
-       (filter some?)))
+(defn message->youtube-id [{:keys [id] :as msg}]
+  (let [youtube-id (->> msg
+                        :payload :parts
+                        (filter (comp #{"text/plain" "text/html"} :mimeType))
+                        (map (comp extract-youtube-id
+                                   #(gb/decodeString % true)
+                                   :data :body))
+                        (filter some?)
+                        first)]
+    (swap! video-id->message-id assoc youtube-id id)
+    youtube-id))
 
 (defn youtube-queue-ids [{::keys [access-token] :as options}]
   (go
-    (->> (gmail-threads options) <!
-         (map :threadId)
+    (->> (gmail-messages options) <!
+         (map :id)
          (distinct)
-         (map #(assoc options :gmail.thread/id %))
-         (p/read-chan-seq gmail-thread) <!
-         (mapcat thread->youtube-ids)
+         (map #(assoc options :gmail.message/id %))
+         (p/read-chan-seq gmail-message) <!
+         (map message->youtube-id)
          (map #(hash-map :youtube.video/id %)))))
 
 (def video-parts #{"contentDetails" "fileDetails" "id" "liveStreamingDetails" "localizations" "player"
@@ -109,25 +111,51 @@
                                              :part         (str/join "," (filter video-parts parts))}))
         <! :items first)))
 
+(defn mark-message-read [{::keys              [access-token]
+                          :gmail.message/keys [id]}]
+  (fetch (api-uri (str "gmail/v1/users/me/messages/" id "/modify") [[:access_token access-token]])
+         {:method  "post"
+          :headers {"Content-Type" "application/json"}
+          :body    (js/JSON.stringify #js {:removeLabelIds #js ["UNREAD"]})}))
+
+(defn mark-message-unread [{::keys              [access-token]
+                            :gmail.message/keys [id]}]
+  (fetch (api-uri (str "gmail/v1/users/me/messages/" id "/modify") [[:access_token access-token]])
+         {:method  "post"
+          :headers {"Content-Type" "application/json"}
+          :body    (js/JSON.stringify #js {:addLabelIds #js ["UNREAD"]})}))
+
 (comment
   (go
-    (-> (youtube-queue-ids {::access-token auth-token}) <!
+    (-> (youtube-queue-ids {::access-token @auth-token}) <!
         js/console.log))
 
   (go
-    (let [results (<! (gmail-threads {::access-token auth-token}))]
+    (let [results (<! (gmail-messages {::access-token @auth-token}))]
       (js/console.log "Res" results)))
 
   (go
-    (let [thread (->> (gmail-thread {::access-token   auth-token
+    (let [thread (->> (gmail-thread {::access-token   @auth-token
                                      :gmail.thread/id "15b4a26a9e0bddff"})
-                      (<!)
-                      thread->youtube-ids)]
+                      (<!))]
       (js/console.log thread)))
+
+  (go
+    (let [message (->> (gmail-message {::access-token    @auth-token
+                                       :gmail.message/id "15b4f81b65e0b951"})
+                       (<!))]
+      (js/console.log message)))
+
+  (go
+    (let [message (->> (mark-message-unread {::access-token    @auth-token
+                                             :gmail.message/id "15b4f81b65e0b951"})
+                       (<!))]
+      (js/console.log message)))
 
   (go
     (let [video (->> (youtube-details #:youtube.video {::access-token auth-token
                                                        :id            "qyy7GaH415U"
                                                        :parts         ["snippet"]})
-                     (<!))]
+                     (<!)
+                     )]
       (js/console.log video))))
