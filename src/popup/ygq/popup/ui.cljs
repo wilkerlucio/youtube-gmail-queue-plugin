@@ -76,8 +76,6 @@
           (dom/div #js {:className "video--channel-title"} channel-title)
           (dom/div #js {:className "flex-space"})
           (dom/div #js {:className "video--actions"}
-            (dom/a #js {:className "video--action"}
-              (icon "plus"))
             (if-not watched?
               (dom/a #js {:className "video--action"
                           :href      "#"
@@ -87,8 +85,12 @@
                           :href      "#"
                           :onClick   (pd #(om/transact! this `[(video/mark-unwatched {::video/id ~id})]))}
                 (icon "repeat")))
-            (dom/a #js {:className "video--action"}
-              (icon "remove"))))))))
+            #_ (dom/a #js {:className "video--action"}
+              (dom/a #js {:className "video--action"
+                          :href      "#"
+                          :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id})
+                                                               (video/remove {::video/id ~id})]))}
+                (icon "remove")))))))))
 
 (def queued-video (om/factory QueuedVideo))
 
