@@ -40,7 +40,9 @@
   {:video/queue
    (fn [{:keys [::g/access-token ::cache ast] :as env}]
      (go
-       (if (get-in ast [:params :clear-cache]) (swap! cache dissoc ::queue-ids))
+       (if (and cache (or (get-in ast [:params :clear-cache])
+                          (empty? (get @cache ::queue-ids))))
+         (swap! cache dissoc ::queue-ids))
        (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids env))]
          (<! (p/read-chan-seq
                #(p/read-chan-values
@@ -61,9 +63,9 @@
         :youtube.video/by-id
         (go
           (let [video (<!cache cache key
-                               (g/youtube-details #:youtube.video{:id              id
-                                                                  :parts           (query->parts query)
-                                                                  ::g/access-token access-token}))]
+                        (g/youtube-details #:youtube.video{:id              id
+                                                           :parts           (query->parts query)
+                                                           ::g/access-token access-token}))]
             (p/continue-with-reader (assoc env ::entity video)
                                     camel-key-reader)))
 
