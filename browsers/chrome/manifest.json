@@ -14,7 +14,7 @@
     "identity",
     "https://www.googleapis.com/*"
   ],
-  "page_action": {
+  "browser_action": {
     "default_title": "Youtube Gmail Queue",
     "default_popup": "queue-popup.html"
   },

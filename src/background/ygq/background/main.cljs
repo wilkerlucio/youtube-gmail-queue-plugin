@@ -5,21 +5,6 @@
             [ygq.background.parser :as p]
             [google.api :as g]))
 
-(defn setup-popup-activation [url]
-  (js/chrome.runtime.onInstalled.addListener
-    (fn []
-      (js/chrome.declarativeContent.onPageChanged.removeRules
-        (fn []
-          (js/chrome.declarativeContent.onPageChanged.addRules
-            #js [{:conditions
-                  #js [(js/chrome.declarativeContent.PageStateMatcher.
-                         #js {:pageUrl #js {:urlContains url}})]
-
-                  :actions
-                  #js [(js/chrome.declarativeContent.ShowPageAction.)]}]))))))
-
-(setup-popup-activation "youtube.com")
-
 (defonce comm-listener
   (go
     (let [rpc (rpc/listen (async/chan 10))
