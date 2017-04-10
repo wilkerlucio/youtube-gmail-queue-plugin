@@ -109,18 +109,17 @@
     (let [{:keys [ui/react-key video/queue]} (om/props this)]
       (dom/div #js {:key react-key}
         (dom/div nil
+          (dom/div #js {:className "main-actions-row"}
+            (dom/div #js {:className "main-actions-title"} "Youtube Gmail Queue")
+            (dom/div #js {:className "flex-space"})
+            (dom/a #js {:href    "#"
+                        :className "main-actions-row--reload"
+                        :onClick (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}}))}
+              "Reload queue"))
           (if (df/loading? (:ui/fetch-state queue))
             (center-text "Loading video list...")
-            (dom/div nil
-              (dom/div #js {:className "main-actions-row"}
-                (dom/div #js {:className "main-actions-title"} "Youtube Gmail Queue")
-                (dom/div #js {:className "flex-space"})
-                (dom/a #js {:href    "#"
-                            :className "main-actions-row--reload"
-                            :onClick (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}}))}
-                  "Reload queue"))
-              (if (empty? queue)
-                (center-text "No videos left to watch.")
-                (mapv queued-video queue)))))))))
+            (if (empty? queue)
+              (center-text "No videos left to watch.")
+              (mapv queued-video queue))))))))
 
 (def root (om/factory Root))
