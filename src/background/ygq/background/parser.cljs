@@ -13,19 +13,17 @@
 
 (defmulti mutate om/dispatch)
 
-(defmethod mutate 'youtube.video/mark-watched [{:keys [::g/access-token ::cache]} _ {::video/keys [id]}]
+(defmethod mutate 'youtube.video/mark-watched [{:keys [::cache]} _ {::video/keys [id]}]
   {:remote true
    :action (fn []
              (swap! cache assoc-in [[::video/by-id id] ::video/watched?] true)
-             (g/mark-message-read {::g/access-token  access-token
-                                   :gmail.message/id (get @g/video-id->message-id id)}))})
+             (g/mark-message-read {:gmail.message/id (get @g/video-id->message-id id)}))})
 
-(defmethod mutate 'youtube.video/mark-unwatched [{:keys [::g/access-token ::cache]} _ {::video/keys [id]}]
+(defmethod mutate 'youtube.video/mark-unwatched [{:keys [::cache]} _ {::video/keys [id]}]
   {:remote true
    :action (fn []
              (swap! cache assoc-in [[::video/by-id id] ::video/watched?] false)
-             (g/mark-message-unread {::g/access-token  access-token
-                                     :gmail.message/id (get @g/video-id->message-id id)}))})
+             (g/mark-message-unread {:gmail.message/id (get @g/video-id->message-id id)}))})
 
 (defn camel-key-reader [{{:keys [key]} :ast :keys [::entity parser query] :as env}]
   (if (contains? entity key)
@@ -38,7 +36,7 @@
 
 (def root-endpoints
   {:video/queue
-   (fn [{:keys [::g/access-token ::cache ast] :as env}]
+   (fn [{:keys [::cache ast] :as env}]
      (go
        (if (and cache (or (get-in ast [:params :clear-cache])
                           (empty? (get @cache ::queue-ids))))
@@ -56,7 +54,7 @@
        (map (comp gstr/toCamelCase name :key))
        (set)))
 
-(defn youtube-reader [{:keys [query parser ::g/access-token ::cache] :as env}]
+(defn youtube-reader [{:keys [query parser ::cache] :as env}]
   (let [key (get-in env [:ast :key])]
     (if-let [[k id] (and (omu/ident? key) key)]
       (case k
@@ -64,8 +62,7 @@
         (go
           (let [video (<!cache cache key
                         (g/youtube-details #:youtube.video{:id              id
-                                                           :parts           (query->parts query)
-                                                           ::g/access-token access-token}))]
+                                                           :parts           (query->parts query)}))]
             (p/continue-with-reader (assoc env ::entity video)
                                     camel-key-reader)))
 
@@ -85,16 +82,14 @@
 
 (comment
   (go
-    (-> (parser {::p/reader       root-endpoints
-                 ::g/access-token @ygq.background.main/auth-token}
+    (-> (parser {::p/reader       root-endpoints}
                 [{:video/queue [:youtube.video/id]}])
         (p/read-chan-values)
         <! js/console.log))
 
 
   (go
-    (-> (parser {::p/reader       youtube-reader
-                 ::g/access-token @g/auth-token}
+    (-> (parser {::p/reader       youtube-reader}
                 [{[:youtube.video/by-id "0SE3l1RI8ow"]
                   [:youtube.video/id
                    {:youtube.video/snippet

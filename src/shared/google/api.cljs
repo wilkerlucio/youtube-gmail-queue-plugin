@@ -36,11 +36,17 @@
 
 (defn auth-env [] {::access-token @auth-token})
 
+(defn uri-set-query-param [uri key value]
+  (let [uri (Uri. uri)]
+    (-> uri .getQueryData (.set key value))
+    (.toString uri)))
+
 (defn fetch
   ([uri] (fetch uri {}))
   ([uri options]
    (go
-     (let [response (<! (ca/promise->chan (js/fetch uri (clj->js options))))]
+     (let [uri (uri-set-query-param uri "access_token" (<! (request-token)))
+           response (<! (ca/promise->chan (js/fetch uri (clj->js options))))]
        (js->clj (<! (ca/promise->chan (.json response))) :keywordize-keys true)))))
 
 (defn make-query [m]
@@ -59,17 +65,14 @@
   (go
     (-> (fetch (api-uri "gmail/v1/users/me/messages" [[:includeSpamTrash false]
                                                       [:labelIds "Label_97618004354056322"]
-                                                      [:labelIds "UNREAD"]
-                                                      [:access_token access-token]]))
+                                                      [:labelIds "UNREAD"]]))
         <! :messages)))
 
-(defn gmail-thread [{::keys             [access-token]
-                     :gmail.thread/keys [id]}]
-  (fetch (api-uri (str "gmail/v1/users/me/threads/" id) [[:access_token access-token]])))
+(defn gmail-thread [{:gmail.thread/keys [id]}]
+  (fetch (api-uri (str "gmail/v1/users/me/threads/" id) [])))
 
-(defn gmail-message [{::keys              [access-token]
-                      :gmail.message/keys [id]}]
-  (fetch (api-uri (str "gmail/v1/users/me/messages/" id) [[:access_token access-token]])))
+(defn gmail-message [{:gmail.message/keys [id]}]
+  (fetch (api-uri (str "gmail/v1/users/me/messages/" id) [])))
 
 (defn extract-youtube-id [msg]
   (if-let [[_ id] (re-find #"youtube\.com/watch\?v=([^&]+)" msg)]
@@ -89,7 +92,7 @@
     (swap! video-id->message-id assoc youtube-id id)
     youtube-id))
 
-(defn youtube-queue-ids [{::keys [access-token] :as options}]
+(defn youtube-queue-ids [options]
   (go
     (->> (gmail-messages options) <!
          (map :id)
@@ -97,19 +100,19 @@
          (map #(assoc options :gmail.message/id %))
          (p/read-chan-seq gmail-message) <!
          (map message->youtube-id)
-         (map #(hash-map :youtube.video/id %)))))
+         (map #(hash-map :youtube.video/id %))
+         (filter some?))))
 
 (def video-parts #{"contentDetails" "fileDetails" "id" "liveStreamingDetails" "localizations" "player"
                    "processingDetails" "recordingDetails" "snippet" "statistics" "status" "suggestions"
                    "topicDetails"})
 
-(defn youtube-details [{::keys              [access-token]
-                        :youtube.video/keys [id parts]}]
+(defn youtube-details [{:youtube.video/keys [id parts] :as video}]
   (go
-    (-> (fetch (api-uri "youtube/v3/videos" {:access_token access-token
-                                             :id           id
-                                             :part         (str/join "," (filter video-parts parts))}))
-        <! :items first)))
+    (or (-> (fetch (api-uri "youtube/v3/videos" {:id   id
+                                              :part (str/join "," (filter video-parts parts))}))
+         <! :items first)
+        video)))
 
 (defn mark-message-read [{::keys              [access-token]
                           :gmail.message/keys [id]}]
@@ -126,12 +129,16 @@
           :body    (js/JSON.stringify #js {:addLabelIds #js ["UNREAD"]})}))
 
 (comment
+  (js/console.log @video-id->message-id)
+
   (go
-    (-> (youtube-queue-ids {::access-token @auth-token}) <!
+    (-> (request-token) <! js/console.log))
+  (go
+    (-> (youtube-queue-ids {}) <!
         js/console.log))
 
   (go
-    (let [results (<! (gmail-messages {::access-token @auth-token}))]
+    (let [results (<! (gmail-messages {}))]
       (js/console.log "Res" results)))
 
   (go
@@ -154,8 +161,15 @@
 
   (go
     (let [video (->> (youtube-details #:youtube.video {::access-token auth-token
-                                                       :id            "qyy7GaH415U"
+                                                       :id            "4b85UX-bxWc"
                                                        :parts         ["snippet"]})
                      (<!)
                      )]
-      (js/console.log video))))
+      (js/console.log video)))
+
+  (let [uri (Uri. (str "https://www.googleapis.com/?access-token=123"))]
+
+    (.toString uri)
+    (.getQueryData uri))
+
+  (uri-set-query-param "https://www.googleapis.com/?access-token=123" "access-token" "over"))
