@@ -33,7 +33,6 @@ body {
 }
 
 img.video--thumbnail {
-  margin: 0 9px;
 }
 
 .loading-container {
@@ -74,4 +73,21 @@ img.video--thumbnail {
 
 .flex-space {
   flex: 1;
+}
+
+.video--thumbnail--container {
+  position: relative;
+  overflow: hidden;
+  margin: 0 9px;
+}
+
+.video--duration {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  background: rgba(0, 0, 0, 0.56);
+  color: #fff;
+  padding: 2px 9px;
+  font-size: 12px;
+  text-shadow: 1px 1px 1px #000;
 }

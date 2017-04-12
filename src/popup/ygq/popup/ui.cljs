@@ -1,6 +1,7 @@
 (ns ygq.popup.ui
   (:require [om.next :as om]
             [om.dom :as dom]
+            [goog.string :as gstr]
             [youtube.video :as video]
             [untangled.client.core :as uc]
             [untangled.client.mutations :refer [mutate]]
@@ -36,6 +37,12 @@
 (defn icon [name]
   (dom/span #js {:className (str "glyphicon glyphicon-" name)}))
 
+(defn duration-str [duration]
+  (if-let [[h m s] (some->> (re-find #"(?:(\d+)H)?(\d+)M(\d+)S$" duration)
+                            next (map #(some-> % (gstr/padNumber 2))))]
+    (cond->> (str m ":" s)
+      h (str h ":"))))
+
 (om/defui ^:once QueuedVideo
   static uc/InitialAppState
   (initial-state [_ title] {::video/id    (random-uuid)
@@ -49,7 +56,9 @@
                 ::video/channel-title
                 {::video/thumbnails
                  [{:youtube.thumbnail/default
-                   [:youtube.thumbnail/url]}]}]}])
+                   [:youtube.thumbnail/url]}]}]}
+              {::video/content-details
+               [::video/duration]}])
 
   static om/Ident
   (ident [_ props] [::video/by-id (::video/id props)])
@@ -61,12 +70,15 @@
         {:parallel true})))
 
   (render [this]
-    (let [{::video/keys [id snippet watched?]} (om/props this)
-          {::video/keys [title channel-title thumbnails]} snippet]
+    (let [{::video/keys [id snippet content-details watched?]} (om/props this)
+          {::video/keys [title channel-title thumbnails]} snippet
+          {::video/keys [duration]} content-details]
       (dom/div #js {:className (cond-> "video--row"
                                  watched? (str " video--row--watched"))}
-        (dom/img #js {:src       (get-in thumbnails [:youtube.thumbnail/default :youtube.thumbnail/url])
-                      :className "video--thumbnail"})
+        (dom/div #js {:className "video--thumbnail--container"}
+          (dom/img #js {:src       (get-in thumbnails [:youtube.thumbnail/default :youtube.thumbnail/url])
+                        :className "video--thumbnail"})
+          (dom/div #js {:className "video--duration"} (duration-str (str duration))))
         (dom/div #js {:className "flex-column"}
           (dom/div #js {:className "video--title"}
             (dom/a #js {:href    "#"
@@ -74,6 +86,7 @@
                                                            (video/mark-watched {::video/id ~id})]))}
               title))
           (dom/div #js {:className "video--channel-title"} channel-title)
+
           (dom/div #js {:className "flex-space"})
           (dom/div #js {:className "video--actions"}
             (if-not watched?
