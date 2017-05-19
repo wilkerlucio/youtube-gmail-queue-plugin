@@ -28,25 +28,11 @@
 (defn camel-key-reader [{{:keys [key]} :ast :keys [::entity parser query] :as env}]
   (if (contains? entity key)
     (get entity key)
-    (let [key'  (-> key name gstr/toCamelCase keyword)
+    (let [key' (-> key name gstr/toCamelCase keyword)
           value (get entity key' ::p/continue)]
       (if (map? value)
         (parser (assoc env ::entity value) query)
         (p/coerce key value)))))
-
-(def root-endpoints
-  {:video/queue
-   (fn [{:keys [::cache ast] :as env}]
-     (go
-       (if (and cache (or (get-in ast [:params :clear-cache])
-                          (empty? (get @cache ::queue-ids))))
-         (swap! cache dissoc ::queue-ids))
-       (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids env))]
-         (<! (p/read-chan-seq
-               #(p/read-chan-values
-                  (p/continue-with-reader (assoc env ::entity %)
-                                          camel-key-reader))
-               videos)))))})
 
 (defn query->parts [query]
   (->> (om/query->ast query)
@@ -54,15 +40,31 @@
        (map (comp gstr/toCamelCase name :key))
        (set)))
 
+(def root-endpoints
+  {:video/queue
+   (fn [{:keys [::cache ast query] :as env}]
+     (go
+       (if (and cache (or (get-in ast [:params :clear-cache])
+                          (empty? (get @cache ::queue-ids))))
+         (swap! cache dissoc ::queue-ids))
+       (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids env))]
+         (<! (p/read-chan-seq
+               #(go
+                  (let [video (<!cache cache [::video/by-id (::video/id %)]
+                                (g/youtube-details (assoc % ::video/parts (query->parts query))))]
+                    (p/continue-with-reader (assoc env ::entity video)
+                                            camel-key-reader)))
+               videos)))))})
+
 (defn youtube-reader [{:keys [query parser ::cache] :as env}]
   (let [key (get-in env [:ast :key])]
     (if-let [[k id] (and (omu/ident? key) key)]
       (case k
-        :youtube.video/by-id
+        ::video/by-id
         (go
           (let [video (<!cache cache key
-                        (g/youtube-details #:youtube.video{:id              id
-                                                           :parts           (query->parts query)}))]
+                        (g/youtube-details #:youtube.video{:id    id
+                                                           :parts (query->parts query)}))]
             (p/continue-with-reader (assoc env ::entity video)
                                     camel-key-reader)))
 
@@ -82,14 +84,14 @@
 
 (comment
   (go
-    (-> (parser {::p/reader       root-endpoints}
+    (-> (parser {::p/reader root-endpoints}
                 [{:video/queue [:youtube.video/id]}])
         (p/read-chan-values)
         <! js/console.log))
 
 
   (go
-    (-> (parser {::p/reader       youtube-reader}
+    (-> (parser {::p/reader youtube-reader}
                 [{[:youtube.video/by-id "0SE3l1RI8ow"]
                   [:youtube.video/id
                    {:youtube.video/snippet

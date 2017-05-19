@@ -100,8 +100,8 @@
          (map #(assoc options :gmail.message/id %))
          (p/read-chan-seq gmail-message) <!
          (map message->youtube-id)
-         (map #(hash-map :youtube.video/id %))
-         (filter some?))))
+         (filter some?)
+         (map #(hash-map :youtube.video/id %)))))
 
 (def video-parts #{"contentDetails" "fileDetails" "id" "liveStreamingDetails" "localizations" "player"
                    "processingDetails" "recordingDetails" "snippet" "statistics" "status" "suggestions"
@@ -110,8 +110,8 @@
 (defn youtube-details [{:youtube.video/keys [id parts] :as video}]
   (go
     (or (-> (fetch (api-uri "youtube/v3/videos" {:id   id
-                                              :part (str/join "," (filter video-parts parts))}))
-         <! :items first)
+                                                 :part (str/join "," (filter video-parts parts))}))
+            <! :items first)
         video)))
 
 (defn mark-message-read [{::keys              [access-token]
