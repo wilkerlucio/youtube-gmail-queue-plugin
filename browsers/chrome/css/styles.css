@@ -33,6 +33,8 @@ body {
 }
 
 img.video--thumbnail {
+  width: 120px;
+  height: 90px;
 }
 
 .loading-container {
