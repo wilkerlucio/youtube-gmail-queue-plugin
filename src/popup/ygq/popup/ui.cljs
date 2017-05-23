@@ -5,7 +5,8 @@
             [youtube.video :as video]
             [untangled.client.core :as uc]
             [untangled.client.mutations :refer [mutate]]
-            [untangled.client.data-fetch :as df]))
+            [untangled.client.data-fetch :as df]
+            [cljs.spec :as s]))
 
 (defmethod mutate 'auth/token-received [{:keys [state]} _ {:keys [token]}]
   {:action (fn []
@@ -26,6 +27,11 @@
    :action (fn []
              (swap! state assoc-in [::video/by-id id ::video/watched?] false))})
 
+(defmethod mutate 'window/close [_ _ _]
+  {:action (fn []
+             (js/console.log "Close window")
+             (js/window.close))})
+
 (defn pd [f]
   (fn [e]
     (.preventDefault e)
@@ -41,7 +47,13 @@
   (if-let [[h m s] (some->> (re-find #"(?:(\d+)H)?(\d+)M(\d+)S$" duration)
                             next (map #(some-> % (gstr/padNumber 2))))]
     (cond->> (str m ":" s)
-      h (str h ":"))))
+             h (str h ":"))))
+
+(s/def ::duration string?)
+
+(s/fdef duration-str
+  :args (s/cat :duration ::duration)
+  :ret (s/and string? #(re-find #"^(\d{2}:)?\d{2}:\d{2}$" %)))
 
 (om/defui ^:once QueuedVideo
   static uc/InitialAppState
@@ -82,8 +94,10 @@
         (dom/div #js {:className "flex-column"}
           (dom/div #js {:className "video--title"}
             (dom/a #js {:href    "#"
+                        :title   title
                         :onClick (pd #(om/transact! this `[(video/navigate {::video/id ~id})
-                                                           (video/mark-watched {::video/id ~id})]))}
+                                                           (video/mark-watched {::video/id ~id})
+                                                           (window/close)]))}
               title))
           (dom/div #js {:className "video--channel-title"} channel-title)
 
@@ -98,12 +112,12 @@
                           :href      "#"
                           :onClick   (pd #(om/transact! this `[(video/mark-unwatched {::video/id ~id})]))}
                 (icon "repeat")))
-            #_ (dom/a #js {:className "video--action"}
-              (dom/a #js {:className "video--action"
-                          :href      "#"
-                          :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id})
-                                                               (video/remove {::video/id ~id})]))}
-                (icon "remove")))))))))
+            #_(dom/a #js {:className "video--action"}
+                (dom/a #js {:className "video--action"
+                            :href      "#"
+                            :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id})
+                                                                 (video/remove {::video/id ~id})]))}
+                  (icon "remove")))))))))
 
 (def queued-video (om/factory QueuedVideo))
 
@@ -125,9 +139,9 @@
           (dom/div #js {:className "main-actions-row"}
             (dom/div #js {:className "main-actions-title"} "Youtube Gmail Queue")
             (dom/div #js {:className "flex-space"})
-            (dom/a #js {:href    "#"
+            (dom/a #js {:href      "#"
                         :className "main-actions-row--reload"
-                        :onClick (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}}))}
+                        :onClick   (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}}))}
               "Reload queue"))
           (if (df/loading? (:ui/fetch-state queue))
             (center-text "Loading video list...")

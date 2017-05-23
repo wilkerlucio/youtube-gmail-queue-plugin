@@ -3,14 +3,15 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url  "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.9.0-alpha14"]
+  :dependencies [[org.clojure/clojure "1.9.0-alpha16"]
                  [org.clojure/clojurescript "1.9.293"]
                  [org.clojure/core.async "0.2.395"]
                  [figwheel-sidecar "0.5.9"]
                  [org.omcljs/om "1.0.0-alpha48"]
                  [navis/untangled-client "0.8.2-SNAPSHOT"]
                  [binaryage/devtools "0.9.2"]
-                 [com.cognitect/transit-cljs "0.8.239"]]
+                 [com.cognitect/transit-cljs "0.8.239"]
+                 [com.gfredericks/test.chuck "0.2.6"]]
 
   :plugins [[lein-figwheel "0.5.9"]]
 

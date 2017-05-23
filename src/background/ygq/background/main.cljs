@@ -13,7 +13,10 @@
         (when-let [{::rpc/keys [payload send-response]} (<! rpc)]
           (let [[k x] payload]
             (case k
-              :app/graph (send-response (<! (p/parse {::g/access-token token} x)))
+              :app/graph (let [response (<! (p/parse {::g/access-token token} x))]
+                           (try
+                             (send-response response)
+                             (catch :default _)))
               :app/ping (send-response {:complex "Pong"})
               (do
                 (js/console.info "Can't handle message" k)
