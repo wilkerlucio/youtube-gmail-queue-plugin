@@ -6,7 +6,8 @@
             [untangled.client.core :as uc]
             [untangled.client.mutations :refer [mutate]]
             [untangled.client.data-fetch :as df]
-            [cljs.spec :as s]))
+            [cljs.spec :as s]
+            [clojure.string :as str]))
 
 (defmethod mutate 'auth/token-received [{:keys [state]} _ {:keys [token]}]
   {:action (fn []
@@ -44,10 +45,11 @@
   (dom/span #js {:className (str "glyphicon glyphicon-" name)}))
 
 (defn duration-str [duration]
-  (if-let [[h m s] (some->> (re-find #"(?:(\d+)H)?(\d+)M(\d+)S$" duration)
-                            next (map #(some-> % (gstr/padNumber 2))))]
-    (cond->> (str m ":" s)
-             h (str h ":"))))
+  (if-let [[h m s] (some->> (re-find #"(?:(\d+)H)?(?:(\d+)M)(?:(\d+)S)?$" duration)
+                            next)]
+    (let [items (->> (filter some? [h (or m 0) (or s 0)])
+                     (map #(some-> % (gstr/padNumber 2))))]
+      (str/join ":" items))))
 
 (s/def ::duration string?)
 
