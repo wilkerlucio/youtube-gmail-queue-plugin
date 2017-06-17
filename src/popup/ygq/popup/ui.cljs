@@ -1,13 +1,16 @@
 (ns ygq.popup.ui
   (:require [om.next :as om]
             [om.dom :as dom]
+            [common.local-storage :as local-storage]
             [goog.string :as gstr]
+            [youtube.channel :as channel]
             [youtube.video :as video]
             [untangled.client.core :as uc]
             [untangled.client.mutations :refer [mutate]]
             [untangled.client.data-fetch :as df]
             [cljs.spec :as s]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [com.rpl.specter :as sp :include-macros true]))
 
 (defmethod mutate 'auth/token-received [{:keys [state]} _ {:keys [token]}]
   {:action (fn []
@@ -28,9 +31,36 @@
    :action (fn []
              (swap! state assoc-in [::video/by-id id ::video/watched?] false))})
 
+(defmethod mutate 'youtube.channel/navigate [_ _ {::channel/keys [id]}]
+  {:action (fn []
+             (let [channel-url (str "https://www.youtube.com/channel/" id)]
+               (js/chrome.tabs.update #js {:url channel-url})))})
+
+(defmethod mutate 'queue/compute-categories [{:keys [state]} _ _]
+  {:action (fn []
+             (let [channels (->> @state
+                                 :video/queue
+                                 (map #(get-in @state %))
+                                 (filter #(some? (get-in % [::video/snippet ::video/channel-id])))
+                                 (group-by #(get-in % [::video/snippet ::video/channel-id]))
+                                 (sp/transform [sp/MAP-VALS]
+                                   (fn [videos]
+                                     {::channel/id     (-> videos first ::video/snippet ::video/channel-id)
+                                      ::channel/title  (-> videos first ::video/snippet ::video/channel-title)
+                                      ::channel/videos (mapv #(vector ::video/by-id (::video/id %)) videos)})))]
+               (swap! state assoc ::channel/by-id channels)
+               (swap! state assoc :channel/list (->> channels
+                                                     (sort-by #(-> % second ::channel/title .toLowerCase))
+                                                     (mapv (comp #(vector ::channel/by-id %)
+                                                                 first))))))})
+
+(defmethod mutate 'ui/set-main-view [{:keys [state]} _ {:keys [view]}]
+  {:action (fn []
+             (swap! state assoc :ui/main-view view)
+             (local-storage/set! :ui/main-view view))})
+
 (defmethod mutate 'window/close [_ _ _]
   {:action (fn []
-             (js/console.log "Close window")
              (js/window.close))})
 
 (defn pd [f]
@@ -67,6 +97,7 @@
               ::video/watched?
               {::video/snippet
                [::video/title
+                ::video/channel-id
                 ::video/channel-title
                 {::video/thumbnails
                  [{:youtube.thumbnail/default
@@ -126,16 +157,46 @@
 (defn center-text [text]
   (dom/div #js {:className "loading-container"} text))
 
-(om/defui ^:once Root
-  static uc/InitialAppState
-  (initial-state [_ _] {})
-
+(om/defui ^:once CategoryGroup
   static om/IQuery
-  (query [_] [{:video/queue (get-load-query QueuedVideo)} :ui/react-key])
+  (query [_] [::channel/id ::channel/title
+              {::channel/videos (om/get-query QueuedVideo)}])
+
+  static om/Ident
+  (ident [_ props] [::channel/by-id (::channel/id props)])
 
   Object
   (render [this]
-    (let [{:keys [ui/react-key video/queue]} (om/props this)]
+    (let [{::channel/keys [id title videos]} (om/props this)]
+      (dom/div nil
+        (dom/a #js {:className "category-group"
+                    :onClick   (pd #(om/transact! this `[(channel/navigate {::channel/id ~id})
+                                                         (window/close)]))}
+          title)
+        (mapv queued-video videos)))))
+
+(def category-group (om/factory CategoryGroup))
+
+(defn main-view-link [{:ui/keys [main-view label component]}]
+  (dom/a #js {:className (cond-> "main-view-chooser--item"
+                           (= (-> (om/props component) :ui/main-view) main-view)
+                           (str " main-view-chooser--item-active"))
+              :onClick   (pd #(om/transact! component `[(ui/set-main-view {:view ~main-view}) :ui/main-view]))}
+    label))
+
+(om/defui ^:once Root
+  static uc/InitialAppState
+  (initial-state [_ _] {:ui/main-view (local-storage/get :ui/main-view ::main-view.latest)})
+
+  static om/IQuery
+  (query [_] [{:video/queue (get-load-query QueuedVideo)}
+              {:channel/list (om/get-query CategoryGroup)}
+              :ui/react-key
+              :ui/main-view])
+
+  Object
+  (render [this]
+    (let [{:keys [ui/react-key video/queue channel/list ui/main-view]} (om/props this)]
       (dom/div #js {:key react-key}
         (dom/div nil
           (dom/div #js {:className "main-actions-row"}
@@ -143,12 +204,23 @@
             (dom/div #js {:className "flex-space"})
             (dom/a #js {:href      "#"
                         :className "main-actions-row--reload"
-                        :onClick   (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}}))}
+                        :onClick   (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}
+                                                                                :post-mutation 'queue/compute-categories}))}
               "Reload queue"))
           (if (df/loading? (:ui/fetch-state queue))
             (center-text "Loading video list...")
             (if (empty? queue)
               (center-text "No videos left to watch.")
-              (mapv queued-video queue))))))))
+              (dom/div nil
+                (dom/div #js {:className "main-view-chooser"}
+                  (main-view-link #:ui{:label     "Latest Uploads"
+                                        :main-view ::main-view.latest
+                                        :component this})
+                  (main-view-link #:ui{:label     "Channels"
+                                        :main-view ::main-view.channels
+                                        :component this}))
+                (case main-view
+                  ::main-view.latest (mapv queued-video queue)
+                  ::main-view.channels (mapv category-group list))))))))))
 
 (def root (om/factory Root))

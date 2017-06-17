@@ -29,7 +29,8 @@
   (atom (uc/new-untangled-client
           :networking (make-network)
           :started-callback (fn [app]
-                              (df/load app :video/queue ui/QueuedVideo)))))
+                              (df/load app :video/queue ui/QueuedVideo
+                                {:post-mutation 'queue/compute-categories})))))
 
 (defn setup-comm []
   (go
