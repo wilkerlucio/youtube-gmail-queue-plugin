@@ -23,6 +23,7 @@
     <orderEntry type="library" name="Leiningen: clj-stacktrace:0.2.8" level="project" />
     <orderEntry type="library" name="Leiningen: clj-time:0.10.0" level="project" />
     <orderEntry type="library" name="Leiningen: cljdev:0.6.0-SNAPSHOT" level="project" />
+    <orderEntry type="library" name="Leiningen: cljsjs/moment:2.17.1-1" level="project" />
     <orderEntry type="library" name="Leiningen: cljsjs/react-dom:15.5.4-0" level="project" />
     <orderEntry type="library" name="Leiningen: cljsjs/react:15.5.4-0" level="project" />
     <orderEntry type="library" name="Leiningen: clojure-complete:0.2.4" level="project" />

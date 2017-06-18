@@ -78,13 +78,14 @@
   (let [res (read-from* env reader)]
     (if (= res ::continue) nil res)))
 
-(defn continue-with-reader [{:keys [parser ast query] :as env} reader]
+(defn continue-with-reader [{:keys [parser query] :as env} reader]
   (parser (assoc env ::reader reader) query))
 
 (def built-in-coercions
   {`int?     #(js/parseInt %)
    `nat-int? #(js/parseInt %)
-   `pos-int? #(js/parseInt %)})
+   `pos-int? #(js/parseInt %)
+   `inst?    #(js/Date. %)})
 
 (defn spec->coerce-sym [spec]
   (try (s/form spec) (catch :default _ nil)))

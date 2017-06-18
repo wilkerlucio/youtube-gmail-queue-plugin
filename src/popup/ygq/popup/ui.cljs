@@ -1,15 +1,16 @@
 (ns ygq.popup.ui
-  (:require [om.next :as om]
-            [om.dom :as dom]
-            [common.local-storage :as local-storage]
-            [goog.string :as gstr]
-            [youtube.channel :as channel]
-            [youtube.video :as video]
-            [untangled.client.core :as uc]
-            [untangled.client.mutations :refer [mutate]]
-            [untangled.client.data-fetch :as df]
+  (:require [cljsjs.moment]
             [cljs.spec :as s]
             [clojure.string :as str]
+            [common.local-storage :as local-storage]
+            [goog.string :as gstr]
+            [om.dom :as dom]
+            [om.next :as om]
+            [untangled.client.core :as uc]
+            [untangled.client.data-fetch :as df]
+            [untangled.client.mutations :refer [mutate]]
+            [youtube.channel :as channel]
+            [youtube.video :as video]
             [com.rpl.specter :as sp :include-macros true]))
 
 (defmethod mutate 'auth/token-received [{:keys [state]} _ {:keys [token]}]
@@ -100,6 +101,7 @@
                [::video/title
                 ::video/channel-id
                 ::video/channel-title
+                ::video/published-at
                 {::video/thumbnails
                  [{:youtube.thumbnail/default
                    [:youtube.thumbnail/url]}]}]}
@@ -117,7 +119,7 @@
 
   (render [this]
     (let [{::video/keys [id snippet content-details watched?]} (om/props this)
-          {::video/keys [title channel-title thumbnails]} snippet
+          {::video/keys [title channel-id channel-title thumbnails published-at]} snippet
           {::video/keys [duration]} content-details]
       (dom/div #js {:className (cond-> "video--row"
                                  watched? (str " video--row--watched"))}
@@ -133,7 +135,11 @@
                                                            (video/mark-watched {::video/id ~id})
                                                            (window/close)]))}
               title))
-          (dom/div #js {:className "video--channel-title"} channel-title)
+          (dom/div #js {:className "video--channel-title"}
+            (dom/a #js {:href "#"
+                        :onClick (pd #(om/transact! this `[(channel/navigate {::channel/id ~channel-id})]))}
+              channel-title))
+          (dom/div #js {:className "video--channel-published-at"} (-> (js/moment published-at) .fromNow))
 
           (dom/div #js {:className "flex-space"})
           (dom/div #js {:className "video--actions"}
@@ -145,13 +151,7 @@
               (dom/a #js {:className "video--action"
                           :href      "#"
                           :onClick   (pd #(om/transact! this `[(video/mark-unwatched {::video/id ~id})]))}
-                (icon "repeat")))
-            #_(dom/a #js {:className "video--action"}
-                (dom/a #js {:className "video--action"
-                            :href      "#"
-                            :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id})
-                                                                 (video/remove {::video/id ~id})]))}
-                  (icon "remove")))))))))
+                (icon "repeat")))))))))
 
 (def queued-video (om/factory QueuedVideo))
 

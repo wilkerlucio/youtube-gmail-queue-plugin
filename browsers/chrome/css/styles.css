@@ -54,6 +54,10 @@ img.video--thumbnail {
   padding: 3px 3px 4px 5px;
 }
 
+.video--channel-published-at {
+  font-size: 11px;
+}
+
 .main-actions-row {
   background: #cc181e;
   color: #fff;

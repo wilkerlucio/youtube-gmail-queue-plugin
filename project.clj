@@ -12,7 +12,9 @@
                  [binaryage/devtools "0.9.2"]
                  [com.cognitect/transit-cljs "0.8.239"]
                  [com.gfredericks/test.chuck "0.2.6"]
-                 [com.rpl/specter "1.0.2"]]
+                 [com.rpl/specter "1.0.2"]
+
+                 [cljsjs/moment "2.17.1-1"]]
 
   :plugins [[lein-figwheel "0.5.9"]]
 
