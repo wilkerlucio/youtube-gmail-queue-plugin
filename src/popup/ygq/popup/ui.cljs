@@ -213,7 +213,7 @@
             (center-text "Loading video list...")
 
             (= :ygq.background.parser/missing-gmail-label (-> queue first :app/error))
-            (center-text "Need to set label.")
+            (center-text "Youtube filter not found on Gmail.")
 
             (empty? queue)
             (center-text "No videos left to watch.")
