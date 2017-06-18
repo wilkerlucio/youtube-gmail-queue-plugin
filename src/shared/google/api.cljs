@@ -3,6 +3,7 @@
   (:require [cljs.core.async :as async :refer [<!]]
             [cljs.spec :as s]
             [clojure.string :as str]
+            [clojure.test.check.generators]
             [common.async :as ca]
             [goog.crypt.base64 :as gb]
             [goog.string :as gstr]
@@ -26,21 +27,50 @@
 
 (s/def :gmail.filter/id string?)
 (s/def :gmail.filter.criteria/from string?)
+(s/def :gmail.filter.criteria/to string?)
+(s/def :gmail.filter.criteria/subject string?)
+(s/def :gmail.filter.criteria/query string?)
+(s/def :gmail.filter.criteria/negated-query string?)
+(s/def :gmail.filter.criteria/has-attachment boolean?)
+(s/def :gmail.filter.criteria/exclude-chats boolean?)
+(s/def :gmail.filter.criteria/size nat-int?)
+(s/def :gmail.filter.criteria/size-comparison string?)
 (s/def :gmail.filter.action/add-label-ids (s/coll-of :gmail.label/id))
 (s/def :gmail.filter.action/remove-label-ids (s/coll-of :gmail.label/id))
 
 (defn map->flatten-ns [ns m]
   (reduce
     (fn [m [k v]]
-      (let [k (-> k name gstr/toSelectorCase)]
+      (let [k (if (or (string? k) (simple-keyword? k))
+                (-> k name gstr/toSelectorCase) k)]
         (if (map? v)
-          (merge m (map->flatten-ns (str ns "." (name k)) v))
-          (let [k (if (or (string? k) (simple-keyword? k))
-                        (keyword ns (name k))
-                        k)]
+          (merge m (map->flatten-ns (str ns "." k) v))
+          (let [k (if (string? k) (keyword ns k) k)]
             (assoc m k v)))))
     {}
     m))
+
+(s/fdef map->flatten-ns
+  :args (s/cat :ns string? :map map?)
+  :ret map?)
+
+(defn flatten-ns->map [ns m]
+  (reduce
+    (fn [m [k v]]
+      (let [path (if (= (namespace k) ns)
+                   [(name k)]
+                   (-> (str (str/replace (namespace k) (js/RegExp. (str "^" ns "\\.")) "")
+                            "."
+                            (name k))
+                       (str/split ".")))
+            path (map gstr/toCamelCase path)]
+        (assoc-in m path v)))
+    {}
+    m))
+
+(s/fdef flatten-ns->map
+  :args (s/cat :ns string? :map map?)
+  :ret map?)
 
 (defn get-auth-token [options]
   (let [c (async/promise-chan)]
@@ -58,8 +88,6 @@
     (let [token (<! (get-auth-token {:interactive true}))]
       (reset! auth-token token)
       token)))
-
-(defn auth-env [] {::access-token @auth-token})
 
 (defn uri-set-query-param [uri key value]
   (let [uri (Uri. uri)]
@@ -86,15 +114,11 @@
      (.setQueryData uri (make-query query))
      (.toString uri))))
 
-(defn gmail-messages [{:keys [gmail.label/id]}]
+(defn gmail-messages [_]
   (go
     (-> (fetch (api-uri "gmail/v1/users/me/messages" [[:includeSpamTrash false]
-                                                      [:labelIds id]
-                                                      [:labelIds "UNREAD"]]))
+                                                      [:q "from:noreply@youtube.com is:unread"]]))
         <! :messages)))
-
-(s/fdef gmail-messages
-  :args (s/cat :request (s/keys :req [:gmail.label/id])))
 
 (defn gmail-thread [{:gmail.thread/keys [id]}]
   (fetch (api-uri (str "gmail/v1/users/me/threads/" id) [])))
@@ -116,13 +140,6 @@
 
 (s/fdef gmail-filters
   :ret map?)
-
-(defn gmail-create-filter [{:gmail.filter/keys []}]
-  )
-
-(s/fdef gmail-create-filter
-  :args (s/cat )
-  :ret any?)
 
 (defn gmail-labels []
   (go

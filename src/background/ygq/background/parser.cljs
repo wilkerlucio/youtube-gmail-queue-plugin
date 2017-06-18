@@ -41,48 +41,21 @@
        (map (comp gstr/toCamelCase name :key))
        (set)))
 
-(def youtube-label-name "[YGQ] Youtube Queue")
-
-(defn find-or-create-youtube-label []
-  (go
-    (or (->> (g/gmail-labels) <!
-             (filter (comp #{youtube-label-name} :gmail.label/name))
-             (first))
-        (-> (g/gmail-create-label #:gmail.label{:name                  youtube-label-name
-                                                :label-list-visibility "labelHide"})
-            <!))))
-
-(s/fdef find-or-create-youtube-label
-  :ret :gmail.label/api-entity)
-
-(defn find-youtube-filter [filters]
-  (->> filters
-       (filter (filter (comp #{"noreply@youtube.com"} :gmail.filter.criteria/from)))
-       (first)))
-
-(defn gmail-youtube-label-id []
-  (go
-    (some-> (g/gmail-filters) <! find-youtube-filter
-            :gmail.filter.action/add-label-ids first)))
-
 (def root-endpoints
   {:video/queue
    (fn [{:keys [::cache ast query] :as env}]
      (go
-       (if-let [label (<!cache cache :gmail.label/id (gmail-youtube-label-id))]
-         (do
-           (if (and cache (or (get-in ast [:params :clear-cache])
-                              (empty? (get @cache ::queue-ids))))
-             (swap! cache dissoc ::queue-ids))
-           (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids {:gmail.label/id label}))]
-             (<! (p/read-chan-seq
-                   #(go
-                      (let [video (<!cache cache [::video/by-id (::video/id %)]
-                                           (g/youtube-details (assoc % ::video/parts (query->parts query))))]
-                        (p/continue-with-reader (assoc env ::entity video)
-                                                camel-key-reader)))
-                   videos))))
-         [{:app/error ::missing-gmail-label}])))})
+       (if (and cache (or (get-in ast [:params :clear-cache])
+                          (empty? (get @cache ::queue-ids))))
+         (swap! cache dissoc ::queue-ids))
+       (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids {}))]
+         (<! (p/read-chan-seq
+               #(go
+                  (let [video (<!cache cache [::video/by-id (::video/id %)]
+                                       (g/youtube-details (assoc % ::video/parts (query->parts query))))]
+                    (p/continue-with-reader (assoc env ::entity video)
+                                            camel-key-reader)))
+               videos)))))})
 
 (defn youtube-reader [{:keys [query ::cache] :as env}]
   (let [key (get-in env [:ast :key])]
