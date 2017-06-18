@@ -38,21 +38,22 @@
 
 (defmethod mutate 'queue/compute-categories [{:keys [state]} _ _]
   {:action (fn []
-             (let [channels (->> @state
-                                 :video/queue
-                                 (map #(get-in @state %))
-                                 (filter #(some? (get-in % [::video/snippet ::video/channel-id])))
-                                 (group-by #(get-in % [::video/snippet ::video/channel-id]))
-                                 (sp/transform [sp/MAP-VALS]
-                                   (fn [videos]
-                                     {::channel/id     (-> videos first ::video/snippet ::video/channel-id)
-                                      ::channel/title  (-> videos first ::video/snippet ::video/channel-title)
-                                      ::channel/videos (mapv #(vector ::video/by-id (::video/id %)) videos)})))]
-               (swap! state assoc ::channel/by-id channels)
-               (swap! state assoc :channel/list (->> channels
-                                                     (sort-by #(-> % second ::channel/title .toLowerCase))
-                                                     (mapv (comp #(vector ::channel/by-id %)
-                                                                 first))))))})
+             (if (sequential? (-> @state :video/queue))
+               (let [channels (->> @state
+                                   :video/queue
+                                   (map #(get-in @state %))
+                                   (filter #(some? (get-in % [::video/snippet ::video/channel-id])))
+                                   (group-by #(get-in % [::video/snippet ::video/channel-id]))
+                                   (sp/transform [sp/MAP-VALS]
+                                     (fn [videos]
+                                       {::channel/id     (-> videos first ::video/snippet ::video/channel-id)
+                                        ::channel/title  (-> videos first ::video/snippet ::video/channel-title)
+                                        ::channel/videos (mapv #(vector ::video/by-id (::video/id %)) videos)})))]
+                 (swap! state assoc ::channel/by-id channels)
+                 (swap! state assoc :channel/list (->> channels
+                                                       (sort-by #(-> % second ::channel/title .toLowerCase))
+                                                       (mapv (comp #(vector ::channel/by-id %)
+                                                                   first)))))))})
 
 (defmethod mutate 'ui/set-main-view [{:keys [state]} _ {:keys [view]}]
   {:action (fn []
@@ -69,7 +70,7 @@
     (f e)))
 
 (defn get-load-query [comp]
-  (conj (om/get-query comp) :ui/fetch-state))
+  (conj (om/get-query comp) :ui/fetch-state :app/error))
 
 (defn icon [name]
   (dom/span #js {:className (str "glyphicon glyphicon-" name)}))
@@ -207,20 +208,27 @@
                         :onClick   (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}
                                                                                 :post-mutation 'queue/compute-categories}))}
               "Reload queue"))
-          (if (df/loading? (:ui/fetch-state queue))
+          (cond
+            (df/loading? (:ui/fetch-state queue))
             (center-text "Loading video list...")
-            (if (empty? queue)
-              (center-text "No videos left to watch.")
-              (dom/div nil
-                (dom/div #js {:className "main-view-chooser"}
-                  (main-view-link #:ui{:label     "Latest Uploads"
-                                        :main-view ::main-view.latest
-                                        :component this})
-                  (main-view-link #:ui{:label     "Channels"
-                                        :main-view ::main-view.channels
-                                        :component this}))
-                (case main-view
-                  ::main-view.latest (mapv queued-video queue)
-                  ::main-view.channels (mapv category-group list))))))))))
+
+            (= :ygq.background.parser/missing-gmail-label (-> queue first :app/error))
+            (center-text "Need to set label.")
+
+            (empty? queue)
+            (center-text "No videos left to watch.")
+
+            :else
+            (dom/div nil
+              (dom/div #js {:className "main-view-chooser"}
+                (main-view-link #:ui{:label     "Latest Uploads"
+                                     :main-view ::main-view.latest
+                                     :component this})
+                (main-view-link #:ui{:label     "Channels"
+                                     :main-view ::main-view.channels
+                                     :component this}))
+              (case main-view
+                ::main-view.latest (mapv queued-video queue)
+                ::main-view.channels (mapv category-group list)))))))))
 
 (def root (om/factory Root))

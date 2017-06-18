@@ -44,19 +44,22 @@
   {:video/queue
    (fn [{:keys [::cache ast query] :as env}]
      (go
-       (if (and cache (or (get-in ast [:params :clear-cache])
-                          (empty? (get @cache ::queue-ids))))
-         (swap! cache dissoc ::queue-ids))
-       (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids env))]
-         (<! (p/read-chan-seq
-               #(go
-                  (let [video (<!cache cache [::video/by-id (::video/id %)]
-                                (g/youtube-details (assoc % ::video/parts (query->parts query))))]
-                    (p/continue-with-reader (assoc env ::entity video)
-                                            camel-key-reader)))
-               videos)))))})
+       (if-let [label (<!cache cache :gmail.label/id (g/gmail-youtube-label-id))]
+         (do
+           (if (and cache (or (get-in ast [:params :clear-cache])
+                              (empty? (get @cache ::queue-ids))))
+             (swap! cache dissoc ::queue-ids))
+           (let [videos (<!cache cache ::queue-ids (g/youtube-queue-ids {:gmail.label/id label}))]
+             (<! (p/read-chan-seq
+                   #(go
+                      (let [video (<!cache cache [::video/by-id (::video/id %)]
+                                    (g/youtube-details (assoc % ::video/parts (query->parts query))))]
+                        (p/continue-with-reader (assoc env ::entity video)
+                                                camel-key-reader)))
+                   videos))))
+         [{:app/error ::missing-gmail-label}])))})
 
-(defn youtube-reader [{:keys [query parser ::cache] :as env}]
+(defn youtube-reader [{:keys [query ::cache] :as env}]
   (let [key (get-in env [:ast :key])]
     (if-let [[k id] (and (omu/ident? key) key)]
       (case k

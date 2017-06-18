@@ -18,10 +18,12 @@
 (s/def :youtube.video/dislike-count nat-int?)
 (s/def :youtube.video/comment-count nat-int?)
 
+(s/def :gmail.label/id string?)
+
 (s/def :gmail.filter/id string?)
 (s/def :gmail.filter.criteria/from string?)
-(s/def :gmail.filter.action/add-label-ids string?)
-(s/def :gmail.filter.action/remove-label-ids string?)
+(s/def :gmail.filter.action/add-label-ids (s/coll-of :gmail.label/id))
+(s/def :gmail.filter.action/remove-label-ids (s/coll-of :gmail.label/id))
 
 (defn map->flatten-ns [ns m]
   (reduce
@@ -77,18 +79,27 @@
      (.setQueryData uri (make-query query))
      (.toString uri))))
 
-(defn gmail-messages [{::keys [access-token]}]
+(defn gmail-messages [{:keys [gmail.label/id]}]
   (go
     (-> (fetch (api-uri "gmail/v1/users/me/messages" [[:includeSpamTrash false]
-                                                      [:labelIds "Label_97618004354056322"]
+                                                      [:labelIds id]
                                                       [:labelIds "UNREAD"]]))
         <! :messages)))
+
+(s/fdef gmail-messages
+  :args (s/cat :request (s/keys :req [:gmail.label/id])))
 
 (defn gmail-thread [{:gmail.thread/keys [id]}]
   (fetch (api-uri (str "gmail/v1/users/me/threads/" id) [])))
 
+(s/fdef gmail-thread
+  :args (s/cat :request (s/keys :req [:gmail.thread/id])))
+
 (defn gmail-message [{:gmail.message/keys [id]}]
   (fetch (api-uri (str "gmail/v1/users/me/messages/" id) [])))
+
+(s/fdef gmail-message
+  :args (s/cat :request (s/keys :req [:gmail.message/id])))
 
 (defn gmail-filters []
   (go
@@ -96,28 +107,24 @@
          <! :filter
          (map (partial map->flatten-ns "gmail.filter")))))
 
-(comment
-  (let [f {:id "ANe1Bmi5XqxAqrfoTq7b4INMoakXwyI0cVbXrQ", :criteria {:query "list:(cocoa-dev.lists.apple.com)"}, :action {:removeLabelIds ["INBOX"]}}
-        ff (fn compute [ns m]
-             (reduce
-               (fn [m [k v]]
-                 (let [k (-> k name gstr/toSelectorCase)]
-                   (if (map? v)
-                     (merge m (compute (str ns "." k) v))
-                     (assoc m (keyword ns k) v))))
-               {}
-               m))]
-    (ff "gmail.filter" f)))
-
 (defn find-youtube-filter [filters]
   (->> filters
        (filter (fn [{:keys [gmail.filter.criteria/from]}]
                  (= from "noreply@youtube.com")))
        (first)))
 
+(defn gmail-youtube-label-id []
+  (go
+    (some-> (gmail-filters) <! find-youtube-filter
+            :gmail.filter.action/add-label-ids first)))
+
 (defn extract-youtube-id [msg]
   (if-let [[_ id] (re-find #"youtube\.com/watch\?v=([^&]+)" msg)]
     id))
+
+(s/fdef extract-youtube-id
+  :args (s/cat :message string?)
+  :ret (s/nilable :youtube.video/id))
 
 (defonce video-id->message-id (atom {}))
 
@@ -173,7 +180,7 @@
   (js/console.log @video-id->message-id)
 
   (go
-    (-> (gmail-filters) <! find-youtube-filter js/console.log))
+    (-> (gmail-youtube-label-id) <! js/console.log))
 
   (go
     (-> (request-token) <! js/console.log))
@@ -182,7 +189,7 @@
         js/console.log))
 
   (go
-    (let [results (<! (gmail-messages {}))]
+    (let [results (<! (gmail-messages {:gmail.label/id "Label_97618004354056322"}))]
       (js/console.log "Res" results)))
 
   (go
