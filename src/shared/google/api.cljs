@@ -5,7 +5,8 @@
             [goog.crypt.base64 :as gb]
             [clojure.string :as str]
             [pathom.core :as p]
-            [cljs.spec :as s])
+            [cljs.spec :as s]
+            [goog.string :as gstr])
   (:import goog.Uri
            goog.Uri.QueryData))
 
@@ -16,6 +17,21 @@
 (s/def :youtube.video/like-count nat-int?)
 (s/def :youtube.video/dislike-count nat-int?)
 (s/def :youtube.video/comment-count nat-int?)
+
+(s/def :gmail.filter/id string?)
+(s/def :gmail.filter.criteria/from string?)
+(s/def :gmail.filter.action/add-label-ids string?)
+(s/def :gmail.filter.action/remove-label-ids string?)
+
+(defn map->flatten-ns [ns m]
+  (reduce
+    (fn [m [k v]]
+      (let [k (-> k name gstr/toSelectorCase)]
+        (if (map? v)
+          (merge m (map->flatten-ns (str ns "." k) v))
+          (assoc m (keyword ns k) v))))
+    {}
+    m))
 
 (defn get-auth-token [options]
   (let [c (async/promise-chan)]
@@ -74,6 +90,31 @@
 (defn gmail-message [{:gmail.message/keys [id]}]
   (fetch (api-uri (str "gmail/v1/users/me/messages/" id) [])))
 
+(defn gmail-filters []
+  (go
+    (->> (fetch (api-uri (str "gmail/v1/users/me/settings/filters") []))
+         <! :filter
+         (map (partial map->flatten-ns "gmail.filter")))))
+
+(comment
+  (let [f {:id "ANe1Bmi5XqxAqrfoTq7b4INMoakXwyI0cVbXrQ", :criteria {:query "list:(cocoa-dev.lists.apple.com)"}, :action {:removeLabelIds ["INBOX"]}}
+        ff (fn compute [ns m]
+             (reduce
+               (fn [m [k v]]
+                 (let [k (-> k name gstr/toSelectorCase)]
+                   (if (map? v)
+                     (merge m (compute (str ns "." k) v))
+                     (assoc m (keyword ns k) v))))
+               {}
+               m))]
+    (ff "gmail.filter" f)))
+
+(defn find-youtube-filter [filters]
+  (->> filters
+       (filter (fn [{:keys [gmail.filter.criteria/from]}]
+                 (= from "noreply@youtube.com")))
+       (first)))
+
 (defn extract-youtube-id [msg]
   (if-let [[_ id] (re-find #"youtube\.com/watch\?v=([^&]+)" msg)]
     id))
@@ -130,6 +171,9 @@
 
 (comment
   (js/console.log @video-id->message-id)
+
+  (go
+    (-> (gmail-filters) <! find-youtube-filter js/console.log))
 
   (go
     (-> (request-token) <! js/console.log))
