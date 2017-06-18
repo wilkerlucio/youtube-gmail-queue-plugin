@@ -1,12 +1,12 @@
 (ns google.api
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [common.async :as ca]
-            [cljs.core.async :as async :refer [<!]]
-            [goog.crypt.base64 :as gb]
-            [clojure.string :as str]
-            [pathom.core :as p]
+  (:require [cljs.core.async :as async :refer [<!]]
             [cljs.spec :as s]
-            [goog.string :as gstr])
+            [clojure.string :as str]
+            [common.async :as ca]
+            [goog.crypt.base64 :as gb]
+            [goog.string :as gstr]
+            [pathom.core :as p])
   (:import goog.Uri
            goog.Uri.QueryData))
 
@@ -19,6 +19,10 @@
 (s/def :youtube.video/comment-count nat-int?)
 
 (s/def :gmail.label/id string?)
+(s/def :gmail.label/name string?)
+(s/def :gmail.label/label-list-visibility #{"labelHide" "labelShow" "labelShowIfUnread"})
+(s/def :gmail.label/message-list-visibility #{"show" "hide"})
+(s/def :gmail.label/type #{"user" "system"})
 
 (s/def :gmail.filter/id string?)
 (s/def :gmail.filter.criteria/from string?)
@@ -30,8 +34,11 @@
     (fn [m [k v]]
       (let [k (-> k name gstr/toSelectorCase)]
         (if (map? v)
-          (merge m (map->flatten-ns (str ns "." k) v))
-          (assoc m (keyword ns k) v))))
+          (merge m (map->flatten-ns (str ns "." (name k)) v))
+          (let [k (if (or (string? k) (simple-keyword? k))
+                        (keyword ns (name k))
+                        k)]
+            (assoc m k v)))))
     {}
     m))
 
@@ -63,7 +70,7 @@
   ([uri] (fetch uri {}))
   ([uri options]
    (go
-     (let [uri (uri-set-query-param uri "access_token" (<! (request-token)))
+     (let [uri      (uri-set-query-param uri "access_token" (<! (request-token)))
            response (<! (ca/promise->chan (js/fetch uri (clj->js options))))]
        (js->clj (<! (ca/promise->chan (.json response))) :keywordize-keys true)))))
 
@@ -107,16 +114,45 @@
          <! :filter
          (map (partial map->flatten-ns "gmail.filter")))))
 
-(defn find-youtube-filter [filters]
-  (->> filters
-       (filter (fn [{:keys [gmail.filter.criteria/from]}]
-                 (= from "noreply@youtube.com")))
-       (first)))
+(s/fdef gmail-filters
+  :ret map?)
 
-(defn gmail-youtube-label-id []
+(defn gmail-create-filter [{:gmail.filter/keys []}]
+  )
+
+(s/fdef gmail-create-filter
+  :args (s/cat )
+  :ret any?)
+
+(defn gmail-labels []
   (go
-    (some-> (gmail-filters) <! find-youtube-filter
-            :gmail.filter.action/add-label-ids first)))
+    (->> (fetch (api-uri (str "gmail/v1/users/me/labels") []))
+         <! :labels
+         (map (partial map->flatten-ns "gmail.label")))))
+
+(s/def :gmail.label/api-entity
+  (s/keys :req [:gmail.label/id :gmail.label/name :gmail.label/type]
+          :opt [:gmail.label/label-list-visibility :gmail.label/message-list-visibility]))
+
+(s/fdef gmail-labels
+  :ret (s/coll-of :gmail.label/api-entity))
+
+(defn gmail-create-label [{:gmail.label/keys [name label-list-visibility message-list-visibility]
+                           :or               {label-list-visibility   "labelShow"
+                                              message-list-visibility "show"}}]
+  (go
+    (->> (fetch (api-uri "gmail/v1/users/me/labels")
+                {:method  "post"
+                 :headers {"Content-Type" "application/json"}
+                 :body    (js/JSON.stringify #js {:name                  name
+                                                  :labelListVisibility   label-list-visibility
+                                                  :messageListVisibility message-list-visibility})})
+         <! (map->flatten-ns "gmail.label"))))
+
+(s/fdef gmail-create-label
+  :args (s/cat :label (s/keys :req [:gmail.label/name]
+                              :opt [:gmail.label/label-list-visibility :gmail.label/message-list-visibility]))
+  :ret :gmail.label/api-entity)
 
 (defn extract-youtube-id [msg]
   (if-let [[_ id] (re-find #"youtube\.com/watch\?v=([^&]+)" msg)]

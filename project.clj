@@ -7,7 +7,7 @@
                  [org.clojure/clojurescript "1.9.293"]
                  [org.clojure/core.async "0.3.442"]
                  [figwheel-sidecar "0.5.9"]
-                 [org.omcljs/om "1.0.0-alpha48"]
+                 [org.omcljs/om "1.0.0-beta1"]
                  [navis/untangled-client "0.8.2-SNAPSHOT"]
                  [binaryage/devtools "0.9.2"]
                  [com.cognitect/transit-cljs "0.8.239"]
