@@ -137,7 +137,8 @@
               title))
           (dom/div #js {:className "video--channel-title"}
             (dom/a #js {:href "#"
-                        :onClick (pd #(om/transact! this `[(channel/navigate {::channel/id ~channel-id})]))}
+                        :onClick (pd #(om/transact! this `[(channel/navigate {::channel/id ~channel-id})
+                                                           (window/close)]))}
               channel-title))
           (dom/div #js {:className "video--channel-published-at"} (-> (js/moment published-at) .fromNow))
 
