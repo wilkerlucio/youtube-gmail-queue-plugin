@@ -4,13 +4,16 @@
             [cljs.spec :as s]
             [clojure.string :as str]
             [clojure.test.check.generators]
+            [common.js :as cjs]
             [common.async :as ca]
             [goog.crypt.base64 :as gb]
+
             [goog.string :as gstr]
             [pathom.core :as p])
   (:import goog.Uri
            goog.Uri.QueryData))
 
+(s/def :youtube.video/id string?)
 (s/def :youtube.video/title string?)
 (s/def :youtube.video/published-at inst?)
 
@@ -74,11 +77,11 @@
 
 (defn get-auth-token [options]
   (let [c (async/promise-chan)]
-    (.getAuthToken js/chrome.identity
-                   (clj->js options)
-                   #(do
-                      (async/put! c %)
-                      (async/close! c)))
+    (cjs/call js/window ["chrome" "identity" "getAuthToken"]
+      options
+      #(do
+         (async/put! c %)
+         (async/close! c)))
     c))
 
 (defonce auth-token (atom nil))
@@ -192,6 +195,20 @@
                         first)]
     (swap! video-id->message-id assoc youtube-id id)
     youtube-id))
+
+(s/def :common-specs.internet/email (s/and string? #(re-find #"\w+@\w+\.\w+" %)))
+
+(s/def :common-specs.auth/password (s/and string? (comp #(-> % (>= 8)) count)))
+(s/def :common-specs.auth/password-confirmation :common-specs.auth/password)
+
+(s/def :common-specs.auth/password+confirmation
+  (s/and (s/keys :req [:common-specs.auth/password :common-specs.auth/password-confirmation])
+         (fn [{:common-specs.auth/keys [password password-confirmation]}]
+           (= password password-confirmation))))
+
+(s/def ::new-user
+  (s/merge (s/keys :req [:common-specs.internet/email])
+           :common-specs.auth/password+confirmation))
 
 (defn youtube-queue-ids [options]
   (go

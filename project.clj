@@ -4,7 +4,7 @@
   :license {:name "Eclipse Public License"
             :url  "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0-alpha14"]
-                 [org.clojure/clojurescript "1.9.293"]
+                 [org.clojure/clojurescript "1.9.456"]
                  [org.clojure/core.async "0.3.442"]
                  [figwheel-sidecar "0.5.9"]
                  [org.omcljs/om "1.0.0-beta1"]
@@ -16,7 +16,8 @@
 
                  [cljsjs/moment "2.17.1-1"]]
 
-  :plugins [[lein-figwheel "0.5.9"]]
+  :plugins [[lein-figwheel "0.5.9"]
+            [lein-cljsbuild "1.1.6"]]
 
   :source-paths ["src/popup" "src/background" "src/shared"]
 
@@ -40,4 +41,22 @@
                                        :asset-path           "js/background-dev"
                                        :source-map-timestamp true
                                        :preloads             [devtools.preload]
-                                       :optimizations        :none}}]})
+                                       :optimizations        :none}}
+
+                       {:id           "popup"
+                        :source-paths ["src/popup" "src/shared"]
+                        :compiler     {:main                 ygq.popup.main
+                                       :output-to            "browsers/chrome-prod/js/popup/ygq.js"
+                                       :output-dir           "browsers/chrome-prod/js/popup"
+                                       :asset-path           "js/popup"
+                                       :source-map-timestamp true
+                                       :optimizations        :advanced}}
+
+                       {:id           "background"
+                        :source-paths ["src/background" "src/shared"]
+                        :compiler     {:main                 ygq.background.main
+                                       :output-to            "browsers/chrome-prod/js/background/ygq.js"
+                                       :output-dir           "browsers/chrome-prod/js/background"
+                                       :asset-path           "js/background"
+                                       :source-map-timestamp true
+                                       :optimizations        :advanced}}]})

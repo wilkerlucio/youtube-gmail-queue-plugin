@@ -3,6 +3,7 @@
             [cljs.spec :as s]
             [clojure.string :as str]
             [common.local-storage :as local-storage]
+            [common.js :as cjs]
             [goog.string :as gstr]
             [om.dom :as dom]
             [om.next :as om]
@@ -13,6 +14,9 @@
             [youtube.video :as video]
             [com.rpl.specter :as sp :include-macros true]))
 
+(defn update-tab-url [url]
+  (cjs/call js/window ["chrome" "tabs" "update"] {:url url}))
+
 (defmethod mutate 'auth/token-received [{:keys [state]} _ {:keys [token]}]
   {:action (fn []
              (swap! state assoc :app/user-token token))})
@@ -20,7 +24,7 @@
 (defmethod mutate 'youtube.video/navigate [_ _ {::video/keys [id]}]
   {:action (fn []
              (let [video-url (str "https://www.youtube.com/watch?v=" id)]
-               (js/chrome.tabs.update #js {:url video-url})))})
+               (update-tab-url video-url)))})
 
 (defmethod mutate 'youtube.video/mark-watched [{:keys [state ref]} _ {::video/keys [id]}]
   {:remote true
@@ -35,7 +39,7 @@
 (defmethod mutate 'youtube.channel/navigate [_ _ {::channel/keys [id]}]
   {:action (fn []
              (let [channel-url (str "https://www.youtube.com/channel/" id)]
-               (js/chrome.tabs.update #js {:url channel-url})))})
+               (update-tab-url channel-url)))})
 
 (defmethod mutate 'queue/compute-categories [{:keys [state]} _ _]
   {:action (fn []

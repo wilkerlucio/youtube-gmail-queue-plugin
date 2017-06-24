@@ -73,8 +73,12 @@ img.video--thumbnail {
   margin-left: 10px;
 }
 
-.main-actions-row--reload, .main-actions-row--reload:hover {
+.main-actions-row--reload,
+.main-actions-row--reload:hover,
+.main-actions-row--reload:focus {
   color: #fff;
+  outline: none;
+  text-decoration: none;
 }
 
 .flex-space {

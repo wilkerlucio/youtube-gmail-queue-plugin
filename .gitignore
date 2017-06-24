@@ -12,3 +12,4 @@ pom.xml.asc
 out/
 browsers/chrome/js/dev
 browsers/chrome/js/background-dev
+browsers/chrome-prod
