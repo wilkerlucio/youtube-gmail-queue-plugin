@@ -7,8 +7,7 @@
             [goog.string :as gstr]
             [google.api :as g]
             [youtube.video :as video]
-            [cljs.core.async :refer [<!]]
-            [cljs.spec :as s]))
+            [cljs.core.async :refer [<!]]))
 
 (defonce ^:private cache* (atom {}))
 

@@ -7,7 +7,7 @@
             [om.next :as om]
             [chrome.rpc :as rpc]
             [google.api :refer [get-auth-token]]
-            [untangled.client.impl.network :as un]
+            [untangled.client.network :as un]
             [untangled.client.data-fetch :as df]))
 
 (defrecord Network [complete-app]

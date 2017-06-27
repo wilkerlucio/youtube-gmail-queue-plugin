@@ -1,6 +1,6 @@
 (ns ygq.popup.ui
   (:require [cljsjs.moment]
-            [cljs.spec :as s]
+            [cljs.spec.alpha :as s]
             [clojure.string :as str]
             [common.local-storage :as local-storage]
             [common.js :as cjs]

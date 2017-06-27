@@ -1,5 +1,5 @@
 (ns chrome.rpc
-  (:require [clojure.core.async :as async]
+  (:require [cljs.core.async :as async]
             [common.js :as cjs]
             [cognitect.transit :as t]
             [om.transit :as ot]))

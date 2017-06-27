@@ -1,7 +1,7 @@
 (ns google.api
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cljs.core.async :as async :refer [<!]]
-            [cljs.spec :as s]
+            [cljs.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.test.check.generators]
             [common.js :as cjs]
