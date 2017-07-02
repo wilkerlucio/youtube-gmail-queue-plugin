@@ -12,6 +12,7 @@
             [untangled.client.mutations :refer [mutate]]
             [youtube.channel :as channel]
             [youtube.video :as video]
+            [youtube.thumbnail :as thumbnail]
             [com.rpl.specter :as sp :include-macros true]))
 
 (defn update-tab-url [url]
@@ -107,8 +108,8 @@
                 ::video/channel-title
                 ::video/published-at
                 {::video/thumbnails
-                 [{:youtube.thumbnail/default
-                   [:youtube.thumbnail/url]}]}]}
+                 [{::thumbnail/default
+                   [::thumbnail/url]}]}]}
               {::video/content-details
                [::video/duration]}])
 
@@ -128,7 +129,7 @@
       (dom/div #js {:className (cond-> "video--row"
                                  watched? (str " video--row--watched"))}
         (dom/div #js {:className "video--thumbnail--container"}
-          (dom/img #js {:src       (get-in thumbnails [:youtube.thumbnail/default :youtube.thumbnail/url])
+          (dom/img #js {:src       (get-in thumbnails [::thumbnail/default ::thumbnail/url])
                         :className "video--thumbnail"})
           (dom/div #js {:className "video--duration"} (duration-str (str duration))))
         (dom/div #js {:className "flex-column"}
