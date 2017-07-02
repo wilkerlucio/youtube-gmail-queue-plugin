@@ -1,10 +1,34 @@
-# youtube-gmail-queue-plugin
+# Youtube Gmail Queue
 
-A Clojure library designed to ... well, that part is up to you.
+This repository contains the source code for the [Chrome Extension Youtube Gmail Queue](https://chrome.google.com/webstore/detail/youtube-gmail-queue/addckdaiclaekgbnkkijijefabgmejoa?hl=en-US&utm_source=chrome-ntp-launcher).
 
-## Usage
+## Development
 
-FIXME
+To start a development compilation run the follwing command:
+
+```
+lein figwheel background-dev popup-dev
+```
+
+Then on Chrome:
+
+1. Go at chrome://extensions
+2. Click `Load unpacked extension...`
+3. Select folder `./browsers/chrome`
+
+## Building
+
+If you want to run a release build (which runs faster) use the script:
+
+```
+./script/build.sh
+```
+
+Then on Chrome:
+
+1. Go at chrome://extensions
+2. Click `Load unpacked extension...`
+3. Select folder `./browsers/chrome-prod`
 
 ## License
 
