@@ -22,24 +22,7 @@
 (s/def :youtube.video/dislike-count nat-int?)
 (s/def :youtube.video/comment-count nat-int?)
 
-(s/def :gmail.label/id string?)
-(s/def :gmail.label/name string?)
-(s/def :gmail.label/label-list-visibility #{"labelHide" "labelShow" "labelShowIfUnread"})
-(s/def :gmail.label/message-list-visibility #{"show" "hide"})
-(s/def :gmail.label/type #{"user" "system"})
-
-(s/def :gmail.filter/id string?)
-(s/def :gmail.filter.criteria/from string?)
-(s/def :gmail.filter.criteria/to string?)
-(s/def :gmail.filter.criteria/subject string?)
-(s/def :gmail.filter.criteria/query string?)
-(s/def :gmail.filter.criteria/negated-query string?)
-(s/def :gmail.filter.criteria/has-attachment boolean?)
-(s/def :gmail.filter.criteria/exclude-chats boolean?)
-(s/def :gmail.filter.criteria/size nat-int?)
-(s/def :gmail.filter.criteria/size-comparison string?)
-(s/def :gmail.filter.action/add-label-ids (s/coll-of :gmail.label/id))
-(s/def :gmail.filter.action/remove-label-ids (s/coll-of :gmail.label/id))
+(s/def ::gmail-query string?)
 
 (defn map->flatten-ns [ns m]
   (reduce
@@ -117,62 +100,17 @@
      (.setQueryData uri (make-query query))
      (.toString uri))))
 
-(defn gmail-messages [_]
+(defn gmail-messages [{::keys [gmail-query]}]
   (go
     (-> (fetch (api-uri "gmail/v1/users/me/messages" [[:includeSpamTrash false]
-                                                      [:q "from:noreply@youtube.com is:unread"]]))
+                                                      [:q gmail-query]]))
         <! :messages)))
-
-(defn gmail-thread [{:gmail.thread/keys [id]}]
-  (fetch (api-uri (str "gmail/v1/users/me/threads/" id) [])))
-
-(s/fdef gmail-thread
-  :args (s/cat :request (s/keys :req [:gmail.thread/id])))
 
 (defn gmail-message [{:gmail.message/keys [id]}]
   (fetch (api-uri (str "gmail/v1/users/me/messages/" id) [])))
 
 (s/fdef gmail-message
   :args (s/cat :request (s/keys :req [:gmail.message/id])))
-
-(defn gmail-filters []
-  (go
-    (->> (fetch (api-uri (str "gmail/v1/users/me/settings/filters") []))
-         <! :filter
-         (map (partial map->flatten-ns "gmail.filter")))))
-
-(s/fdef gmail-filters
-  :ret map?)
-
-(defn gmail-labels []
-  (go
-    (->> (fetch (api-uri (str "gmail/v1/users/me/labels") []))
-         <! :labels
-         (map (partial map->flatten-ns "gmail.label")))))
-
-(s/def :gmail.label/api-entity
-  (s/keys :req [:gmail.label/id :gmail.label/name :gmail.label/type]
-          :opt [:gmail.label/label-list-visibility :gmail.label/message-list-visibility]))
-
-(s/fdef gmail-labels
-  :ret (s/coll-of :gmail.label/api-entity))
-
-(defn gmail-create-label [{:gmail.label/keys [name label-list-visibility message-list-visibility]
-                           :or               {label-list-visibility   "labelShow"
-                                              message-list-visibility "show"}}]
-  (go
-    (->> (fetch (api-uri "gmail/v1/users/me/labels")
-                {:method  "post"
-                 :headers {"Content-Type" "application/json"}
-                 :body    (js/JSON.stringify #js {:name                  name
-                                                  :labelListVisibility   label-list-visibility
-                                                  :messageListVisibility message-list-visibility})})
-         <! (map->flatten-ns "gmail.label"))))
-
-(s/fdef gmail-create-label
-  :args (s/cat :label (s/keys :req [:gmail.label/name]
-                              :opt [:gmail.label/label-list-visibility :gmail.label/message-list-visibility]))
-  :ret :gmail.label/api-entity)
 
 (defn extract-youtube-id [msg]
   (if-let [[_ id] (re-find #"youtube\.com/watch\?v=([^&]+)" msg)]
@@ -196,23 +134,9 @@
     (swap! video-id->message-id assoc youtube-id id)
     youtube-id))
 
-(s/def :common-specs.internet/email (s/and string? #(re-find #"\w+@\w+\.\w+" %)))
-
-(s/def :common-specs.auth/password (s/and string? (comp #(-> % (>= 8)) count)))
-(s/def :common-specs.auth/password-confirmation :common-specs.auth/password)
-
-(s/def :common-specs.auth/password+confirmation
-  (s/and (s/keys :req [:common-specs.auth/password :common-specs.auth/password-confirmation])
-         (fn [{:common-specs.auth/keys [password password-confirmation]}]
-           (= password password-confirmation))))
-
-(s/def ::new-user
-  (s/merge (s/keys :req [:common-specs.internet/email])
-           :common-specs.auth/password+confirmation))
-
 (defn youtube-queue-ids [options]
   (go
-    (->> (gmail-messages options) <!
+    (->> (gmail-messages {::gmail-query "from:noreply@youtube.com is:unread"}) <!
          (map :id)
          (distinct)
          (map #(assoc options :gmail.message/id %))
@@ -246,51 +170,3 @@
           :headers {"Content-Type" "application/json"}
           :body    (js/JSON.stringify #js {:addLabelIds #js ["UNREAD"]})}))
 
-(comment
-  (js/console.log @video-id->message-id)
-
-  (go
-    (-> (gmail-youtube-label-id) <! js/console.log))
-
-  (go
-    (-> (request-token) <! js/console.log))
-  (go
-    (-> (youtube-queue-ids {}) <!
-        js/console.log))
-
-  (go
-    (let [results (<! (gmail-messages {:gmail.label/id "Label_97618004354056322"}))]
-      (js/console.log "Res" results)))
-
-  (go
-    (let [thread (->> (gmail-thread {::access-token   @auth-token
-                                     :gmail.thread/id "15b4a26a9e0bddff"})
-                      (<!))]
-      (js/console.log thread)))
-
-  (go
-    (let [message (->> (gmail-message {::access-token    @auth-token
-                                       :gmail.message/id "15b4f81b65e0b951"})
-                       (<!))]
-      (js/console.log message)))
-
-  (go
-    (let [message (->> (mark-message-unread {::access-token    @auth-token
-                                             :gmail.message/id "15b4f81b65e0b951"})
-                       (<!))]
-      (js/console.log message)))
-
-  (go
-    (let [video (->> (youtube-details #:youtube.video {::access-token auth-token
-                                                       :id            "4b85UX-bxWc"
-                                                       :parts         ["snippet"]})
-                     (<!)
-                     )]
-      (js/console.log video)))
-
-  (let [uri (Uri. (str "https://www.googleapis.com/?access-token=123"))]
-
-    (.toString uri)
-    (.getQueryData uri))
-
-  (uri-set-query-param "https://www.googleapis.com/?access-token=123" "access-token" "over"))
