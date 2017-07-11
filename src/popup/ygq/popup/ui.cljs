@@ -230,6 +230,8 @@
 
 (def category-group (om/factory CategoryGroup))
 
+(declare Root)
+
 (om/defui ^:once MainViewLink
   static css/CSS
   (local-rules [_] [[:.item {:background     "antiquewhite"
@@ -243,17 +245,27 @@
                     [:.active {:background "#ffce8c"}]])
   (include-children [_] [])
 
+  static om/IQuery
+  (query [_] [:ui/main-view])
+
   Object
   (render [this]
     (let [{:ui/keys [main-view label component]} (om/props this)
-          {:keys [item active]} (css/get-classnames MainViewLink)]
-      (dom/a #js {:className (cond-> item
+          {:keys [menu-item menu-item-active]} (css/get-classnames Root)]
+      (dom/a #js {:className (cond-> menu-item
                                (= (-> (om/props component) :ui/main-view) main-view)
-                               (str " " active))
+                               (str " " menu-item-active))
                   :onClick   (pd #(om/transact! component `[(ui/set-main-view {:view ~main-view}) :ui/main-view]))}
         label))))
 
-(def main-view-link (om/factory MainViewLink))
+(defn main-view-link [{:ui/keys [main-view label component]}]
+  (let [{:keys [menu-item menu-item-active]} (css/get-classnames Root)]
+    (dom/a #js {:className (cond-> menu-item
+                             (= (-> (om/props component) :ui/main-view) main-view)
+                             (str " " menu-item-active))
+                :onClick   (pd #(do
+                                  (om/transact! component `[(ui/set-main-view {:view ~main-view}) :ui/main-view])))}
+      label)))
 
 (om/defui ^:once Root
   static uc/InitialAppState
@@ -284,7 +296,17 @@
                       :outline         "none"
                       :text-decoration "none"}]
 
-                    [:.video-chooser {:display "flex"}]])
+                    [:.video-chooser {:display "flex"}]
+
+                    [:.menu-item {:background     "antiquewhite"
+                                  :color          "#000"
+                                  :cursor         "pointer"
+                                  :flex           "1"
+                                  :text-align     "center"
+                                  :padding        "8px"
+                                  :font-weight    "bold"
+                                  :text-transform "uppercase"}]
+                    [:.menu-item-active {:background "#ffce8c"}]])
   (include-children [_] [MainViewLink
                          QueuedVideo
                          CategoryGroup])
