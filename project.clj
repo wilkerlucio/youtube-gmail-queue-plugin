@@ -6,14 +6,17 @@
   :dependencies [[org.clojure/clojure "1.9.0-alpha17"]
                  [org.clojure/clojurescript "1.9.660"]
                  [org.clojure/core.async "0.3.442"]
-                 [figwheel-sidecar "0.5.9"]
-                 [org.omcljs/om "1.0.0-beta1"]
-                 [binaryage/devtools "0.9.2"]
                  [com.cognitect/transit-cljs "0.8.239"]
+
+                 [org.omcljs/om "1.0.0-beta1"]
+                 [awkay/untangled "1.0.0-beta2-SNAPSHOT"]
+                 [untangled/om-css "1.1.0"]
                  [com.gfredericks/test.chuck "0.2.6"]
                  [com.rpl/specter "1.0.2"]
                  [cljsjs/moment "2.17.1-1"]
-                 [awkay/untangled "1.0.0-SNAPSHOT"]]
+
+                 [figwheel-sidecar "0.5.9"]
+                 [binaryage/devtools "0.9.2"]]
 
   :plugins [[lein-figwheel "0.5.9"]
             [lein-cljsbuild "1.1.6"]]

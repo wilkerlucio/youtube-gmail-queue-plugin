@@ -2,17 +2,18 @@
   (:require [cljsjs.moment]
             [cljs.spec.alpha :as s]
             [clojure.string :as str]
-            [common.local-storage :as local-storage]
             [common.js :as cjs]
+            [common.local-storage :as local-storage]
             [goog.string :as gstr]
+            [om-css.css :as css]
             [om.dom :as dom]
             [om.next :as om]
             [untangled.client.core :as uc]
             [untangled.client.data-fetch :as df]
             [untangled.client.mutations :refer [mutate]]
             [youtube.channel :as channel]
-            [youtube.video :as video]
             [youtube.thumbnail :as thumbnail]
+            [youtube.video :as video]
             [com.rpl.specter :as sp :include-macros true]))
 
 (defn update-tab-url [url]
@@ -51,10 +52,10 @@
                                    (filter #(some? (get-in % [::video/snippet ::video/channel-id])))
                                    (group-by #(get-in % [::video/snippet ::video/channel-id]))
                                    (sp/transform [sp/MAP-VALS]
-                                     (fn [videos]
-                                       {::channel/id     (-> videos first ::video/snippet ::video/channel-id)
-                                        ::channel/title  (-> videos first ::video/snippet ::video/channel-title)
-                                        ::channel/videos (mapv #(vector ::video/by-id (::video/id %)) videos)})))]
+                                                 (fn [videos]
+                                                   {::channel/id     (-> videos first ::video/snippet ::video/channel-id)
+                                                    ::channel/title  (-> videos first ::video/snippet ::video/channel-title)
+                                                    ::channel/videos (mapv #(vector ::video/by-id (::video/id %)) videos)})))]
                  (swap! state assoc ::channel/by-id channels)
                  (swap! state assoc :channel/list (->> channels
                                                        (sort-by #(-> % second ::channel/title .toLowerCase))
@@ -91,8 +92,8 @@
 (s/def ::duration string?)
 
 (s/fdef duration-str
-  :args (s/cat :duration ::duration)
-  :ret (s/and string? #(re-find #"^(\d{2}:)?\d{2}:\d{2}$" %)))
+        :args (s/cat :duration ::duration)
+        :ret (s/and string? #(re-find #"^(\d{2}:)?\d{2}:\d{2}$" %)))
 
 (om/defui ^:once QueuedVideo
   static uc/InitialAppState
@@ -116,45 +117,78 @@
   static om/Ident
   (ident [_ props] [::video/by-id (::video/id props)])
 
+  static css/CSS
+  (local-rules [_] [[:.row {:display        "flex"
+                            :border-bottom  "2px solid #3e3e3e"
+                            :padding-top    "10px"
+                            :padding-bottom "6px"
+                            :height         "96px"
+                            :background     "#fff"}]
+                    [:.watched {:background "#ccc"}]
+                    [:.thumbnail-container {:position "relative"
+                                            :overflow "hidden"
+                                            :margin   "0 9px"}]
+                    [:.thumbnail {:width  "120px"
+                                  :height "90px"}]
+                    [:.video-duration {:position    "absolute"
+                                       :right       "5px"
+                                       :bottom      "5px"
+                                       :background  "rgba(0, 0, 0, 0.56)"
+                                       :color       "#fff"
+                                       :padding     "2px 9px"
+                                       :font-size   "12px"
+                                       :text-shadow "1px 1px 1px #000"}]
+                    [:.video-title {:font-weight   "bold"
+                                    :white-space   "nowrap"
+                                    :text-overflow "ellipsis"
+                                    :width         "350px"}]
+                    [:.video-action {:color   "#000"
+                                     :margin  "0 5px 0"
+                                     :padding "3px 3px 4px 5px"}]
+                    [:.s-published-at {:font-size "11px"}]])
+  (include-children [_] [])
+
   Object
   (componentDidMount [this]
     (when-not (-> this om/props ::video/snippet)
       (df/load this (om/get-ident this) QueuedVideo
-        {:parallel true})))
+               {:parallel true})))
 
   (render [this]
     (let [{::video/keys [id snippet content-details watched?]} (om/props this)
           {::video/keys [title channel-id channel-title thumbnails published-at]} snippet
-          {::video/keys [duration]} content-details]
-      (dom/div #js {:className (cond-> "video--row"
-                                 watched? (str " video--row--watched"))}
-        (dom/div #js {:className "video--thumbnail--container"}
+          {::video/keys [duration]} content-details
+          {:keys [row watched video-duration video-title thumbnail-container
+                  thumbnail video-action s-published-at]} (css/get-classnames QueuedVideo)]
+      (dom/div #js {:className (cond-> row
+                                 watched? (str " " watched))}
+        (dom/div #js {:className thumbnail-container}
           (dom/img #js {:src       (get-in thumbnails [::thumbnail/default ::thumbnail/url])
-                        :className "video--thumbnail"})
-          (dom/div #js {:className "video--duration"} (duration-str (str duration))))
+                        :className thumbnail})
+          (dom/div #js {:className video-duration} (duration-str (str duration))))
         (dom/div #js {:className "flex-column"}
-          (dom/div #js {:className "video--title"}
+          (dom/div #js {:className video-title}
             (dom/a #js {:href    "#"
                         :title   title
                         :onClick (pd #(om/transact! this `[(video/navigate {::video/id ~id})
                                                            (video/mark-watched {::video/id ~id})
                                                            (window/close)]))}
               title))
-          (dom/div #js {:className "video--channel-title"}
-            (dom/a #js {:href "#"
+          (dom/div nil
+            (dom/a #js {:href    "#"
                         :onClick (pd #(om/transact! this `[(channel/navigate {::channel/id ~channel-id})
                                                            (window/close)]))}
               channel-title))
-          (dom/div #js {:className "video--channel-published-at"} (-> (js/moment published-at) .fromNow))
+          (dom/div #js {:className s-published-at} (-> (js/moment published-at) .fromNow))
 
           (dom/div #js {:className "flex-space"})
-          (dom/div #js {:className "video--actions"}
+          (dom/div nil
             (if-not watched?
-              (dom/a #js {:className "video--action"
+              (dom/a #js {:className video-action
                           :href      "#"
                           :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id})]))}
                 (icon "ok"))
-              (dom/a #js {:className "video--action"
+              (dom/a #js {:className video-action
                           :href      "#"
                           :onClick   (pd #(om/transact! this `[(video/mark-unwatched {::video/id ~id})]))}
                 (icon "repeat")))))))))
@@ -172,11 +206,23 @@
   static om/Ident
   (ident [_ props] [::channel/by-id (::channel/id props)])
 
+  static css/CSS
+  (local-rules [_] [[:.group {:color         "#fff"
+                              :cursor        "pointer"
+                              :display       "block"
+                              :background    "#3bc1a5"
+                              :border-bottom "2px solid #000"
+                              :font-size     "18px"
+                              :font-weight   "bold"
+                              :padding       "3px 10px"}]])
+  (include-children [_] [])
+
   Object
   (render [this]
-    (let [{::channel/keys [id title videos]} (om/props this)]
+    (let [{::channel/keys [id title videos]} (om/props this)
+          {:keys [group]} (css/get-classnames CategoryGroup)]
       (dom/div nil
-        (dom/a #js {:className "category-group"
+        (dom/a #js {:className group
                     :onClick   (pd #(om/transact! this `[(channel/navigate {::channel/id ~id})
                                                          (window/close)]))}
           title)
@@ -184,12 +230,30 @@
 
 (def category-group (om/factory CategoryGroup))
 
-(defn main-view-link [{:ui/keys [main-view label component]}]
-  (dom/a #js {:className (cond-> "main-view-chooser--item"
-                           (= (-> (om/props component) :ui/main-view) main-view)
-                           (str " main-view-chooser--item-active"))
-              :onClick   (pd #(om/transact! component `[(ui/set-main-view {:view ~main-view}) :ui/main-view]))}
-    label))
+(om/defui ^:once MainViewLink
+  static css/CSS
+  (local-rules [_] [[:.item {:background     "antiquewhite"
+                             :color          "#000"
+                             :cursor         "pointer"
+                             :flex           "1"
+                             :text-align     "center"
+                             :padding        "8px"
+                             :font-weight    "bold"
+                             :text-transform "uppercase"}]
+                    [:.active {:background "#ffce8c"}]])
+  (include-children [_] [])
+
+  Object
+  (render [this]
+    (let [{:ui/keys [main-view label component]} (om/props this)
+          {:keys [item active]} (css/get-classnames MainViewLink)]
+      (dom/a #js {:className (cond-> item
+                               (= (-> (om/props component) :ui/main-view) main-view)
+                               (str " " active))
+                  :onClick   (pd #(om/transact! component `[(ui/set-main-view {:view ~main-view}) :ui/main-view]))}
+        label))))
+
+(def main-view-link (om/factory MainViewLink))
 
 (om/defui ^:once Root
   static uc/InitialAppState
@@ -201,17 +265,59 @@
               :ui/react-key
               :ui/main-view])
 
+  static css/CSS
+  (local-rules [_] [[:.main-row {:background    "#cc181e"
+                                 :color         "#fff"
+                                 :display       "flex"
+                                 :border-bottom "2px solid #3e3e3e"
+                                 :padding       "5px"
+                                 :align-items   "baseline"}]
+
+                    [:.action-title {:font-weight "bold"
+                                     :font-size   "27px"
+                                     :margin-left "10px"}]
+
+                    [:.reload-button
+                     :.reload-button:hover
+                     :.reload-button:focus
+                     {:color           "#fff"
+                      :outline         "none"
+                      :text-decoration "none"}]
+
+                    [:.video-chooser {:display "flex"}]])
+  (include-children [_] [MainViewLink
+                         QueuedVideo
+                         CategoryGroup])
+
+  static css/Global
+  (global-rules [_]
+    [[:body {:background "#3e3e3e"
+             :width      "500px"
+             :height     "500px"}]
+     [:.loading-container {:display         "flex"
+                           :align-items     "center"
+                           :width           "100vw"
+                           :height          "100vh"
+                           :justify-content "center"
+                           :color           "#68b2f3"
+                           :font-weight     "bold"
+                           :font-size       "28px"}]
+     [:.flex-space {:flex "1"}]
+     [:.flex-column {:display        "flex"
+                     :flex-direction "column"}]])
+
   Object
   (render [this]
-    (let [{:keys [ui/react-key video/queue channel/list ui/main-view]} (om/props this)]
+    (let [{:keys [ui/react-key video/queue channel/list ui/main-view]} (om/props this)
+          {:keys [main-row action-title reload-button video-chooser]} (css/get-classnames Root)]
       (dom/div #js {:key react-key}
         (dom/div nil
-          (dom/div #js {:className "main-actions-row"}
-            (dom/div #js {:className "main-actions-title"} "Youtube Gmail Queue")
+          (dom/div #js {:className main-row}
+            (dom/div #js {:className action-title} "Youtube Gmail Queue")
             (dom/div #js {:className "flex-space"})
             (if-not (df/loading? (:ui/fetch-state queue))
               (dom/a #js {:href      "#"
-                          :className "main-actions-row--reload"
+                          :className reload-button
                           :onClick   (pd #(df/load this :video/queue QueuedVideo {:params        {:clear-cache true}
                                                                                   :post-mutation 'queue/compute-categories}))}
                 "Reload queue")))
@@ -224,7 +330,7 @@
 
             :else
             (dom/div nil
-              (dom/div #js {:className "main-view-chooser"}
+              (dom/div #js {:className video-chooser}
                 (main-view-link #:ui{:label     "Latest Uploads"
                                      :main-view ::main-view.latest
                                      :component this})
@@ -235,4 +341,4 @@
                 ::main-view.latest (mapv queued-video queue)
                 ::main-view.channels (mapv category-group list)))))))))
 
-(def root (om/factory Root))
+(css/upsert-css "ygq" Root)
