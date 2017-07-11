@@ -209,11 +209,12 @@
           (dom/div #js {:className "main-actions-row"}
             (dom/div #js {:className "main-actions-title"} "Youtube Gmail Queue")
             (dom/div #js {:className "flex-space"})
-            (dom/a #js {:href      "#"
-                        :className "main-actions-row--reload"
-                        :onClick   (pd #(df/load this :video/queue QueuedVideo {:params {:clear-cache true}
-                                                                                :post-mutation 'queue/compute-categories}))}
-              "Reload queue"))
+            (if-not (df/loading? (:ui/fetch-state queue))
+              (dom/a #js {:href      "#"
+                          :className "main-actions-row--reload"
+                          :onClick   (pd #(df/load this :video/queue QueuedVideo {:params        {:clear-cache true}
+                                                                                  :post-mutation 'queue/compute-categories}))}
+                "Reload queue")))
           (cond
             (df/loading? (:ui/fetch-state queue))
             (center-text "Loading video list...")
