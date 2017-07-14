@@ -28,12 +28,12 @@
              (let [video-url (str "https://www.youtube.com/watch?v=" id)]
                (update-tab-url video-url)))})
 
-(defmethod mutate 'youtube.video/mark-watched [{:keys [state ref]} _ {::video/keys [id]}]
+(defmethod mutate 'youtube.video/mark-watched [{:keys [state]} _ {::video/keys [id]}]
   {:remote true
    :action (fn []
              (swap! state assoc-in [::video/by-id id ::video/watched?] true))})
 
-(defmethod mutate 'youtube.video/mark-unwatched [{:keys [state ref]} _ {::video/keys [id]}]
+(defmethod mutate 'youtube.video/mark-unwatched [{:keys [state]} _ {::video/keys [id]}]
   {:remote true
    :action (fn []
              (swap! state assoc-in [::video/by-id id ::video/watched?] false))})

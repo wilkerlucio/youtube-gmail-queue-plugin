@@ -27,5 +27,5 @@
   `(if-let [[_ v#] (find (deref ~cache) ~key)]
      v#
      (let [v# (cljs.core.async/<! (do ~@body))]
-       (swap! ~cache assoc ~key v#)
+       (swap! ~cache assoc ~key (with-meta v# {:updated-at (inst-ms (js/Date.))}))
        v#)))

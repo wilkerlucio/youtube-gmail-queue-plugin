@@ -1,5 +1,5 @@
 (ns ygq.background.parser
-  (:require-macros [cljs.core.async.macros :refer [go]]
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]
                    [common.async :refer [<!cache]])
   (:require [pathom.core :as p]
             [om.next :as om]
@@ -82,12 +82,29 @@
         tx)
       (p/read-chan-values)))
 
+(defn watch-queue-update []
+  (js/setInterval
+    (fn []
+      (let [ids          (get @cache* ::queue-ids)
+            {:keys [updated-at]} (or (meta ids) 0)
+            current-time (inst-ms (js/Date.))]
+        (if (> (- current-time updated-at) 300000)
+          (go
+            (let [videos (<! (g/youtube-queue-ids {}))]
+              (swap! cache* assoc ::queue-ids (-> (concat videos ids)
+                                                  (distinct)
+                                                  (with-meta {:updated-at (inst-ms (js/Date.))}))))))))
+    60000))
+
+(defonce start-watch (watch-queue-update))
+
 (comment
   (go
     (-> (parser {::p/reader root-endpoints}
                 [{:video/queue [:youtube.video/id]}])
         (p/read-chan-values)
         <! js/console.log))
+
 
 
   (go
