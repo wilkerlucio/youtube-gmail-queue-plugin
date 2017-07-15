@@ -19,6 +19,9 @@
 (defn update-tab-url [url]
   (cjs/call js/window ["chrome" "tabs" "update"] {:url url}))
 
+(defn cs [component class-name]
+  (get (css/get-classnames component) (keyword class-name)))
+
 (defmethod mutate 'auth/token-received [{:keys [state]} _ {:keys [token]}]
   {:action (fn []
              (swap! state assoc :app/user-token token))})
@@ -94,6 +97,23 @@
 (s/fdef duration-str
         :args (s/cat :duration ::duration)
         :ret (s/and string? #(re-find #"^(\d{2}:)?\d{2}:\d{2}$" %)))
+
+(defn duration->seconds [duration]
+  (if-let [[h m s] (some->> (re-find #"(?:(\d+)H)?(?:(\d+)M)(?:(\d+)S)?$" duration)
+                            next)]
+    (let [h (js/parseInt (or h 0))
+          m (js/parseInt (or m 0))
+          s (js/parseInt (or s 0))]
+      (+ (* h 3600) (* m 60) s))
+    0))
+
+(defn seconds->duration [seconds]
+  (let [h     (js/Math.floor (/ seconds 3600))
+        m     (mod (js/Math.floor (/ seconds 60)) 60)
+        parts (cond-> []
+                (> h 0) (conj (str h " hours"))
+                (> m 0) (conj (str m " minutes")))]
+    (str/join " and " parts)))
 
 (om/defui ^:once QueuedVideo
   static uc/InitialAppState
@@ -186,11 +206,11 @@
             (if-not watched?
               (dom/a #js {:className video-action
                           :href      "#"
-                          :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id})]))}
+                          :onClick   (pd #(om/transact! this `[(video/mark-watched {::video/id ~id}) :video/queue]))}
                 (icon "ok"))
               (dom/a #js {:className video-action
                           :href      "#"
-                          :onClick   (pd #(om/transact! this `[(video/mark-unwatched {::video/id ~id})]))}
+                          :onClick   (pd #(om/transact! this `[(video/mark-unwatched {::video/id ~id} :video/queue)]))}
                 (icon "repeat")))))))))
 
 (def queued-video (om/factory QueuedVideo))
@@ -285,6 +305,10 @@
                                  :padding       "5px"
                                  :align-items   "baseline"}]
 
+                    [:.main-container {:display "flex"
+                                       :flex-direction "column"
+                                       :height "100vh"}]
+
                     [:.action-title {:font-weight "bold"
                                      :font-size   "27px"
                                      :margin-left "10px"}]
@@ -306,7 +330,17 @@
                                   :padding        "8px"
                                   :font-weight    "bold"
                                   :text-transform "uppercase"}]
-                    [:.menu-item-active {:background "#ffce8c"}]])
+                    [:.menu-item-active {:background "#ffce8c"}]
+                    [:.remaining-bar {:background    "#fff"
+                                      :border-bottom "2px solid #000"
+                                      :font-weight   "bold"
+                                      :font-size     "12px"
+                                      :text-align    "center"
+                                      :padding       "8px 0"}]
+                    [:.view-area {:flex       "1"
+                                  :overflow   "auto"
+                                  :width      "100vw"
+                                  :overflow-x "hidden"}]])
   (include-children [_] [MainViewLink
                          QueuedVideo
                          CategoryGroup])
@@ -331,9 +365,9 @@
   Object
   (render [this]
     (let [{:keys [ui/react-key video/queue channel/list ui/main-view]} (om/props this)
-          {:keys [main-row action-title reload-button video-chooser]} (css/get-classnames Root)]
+          {:keys [main-row action-title reload-button video-chooser remaining-bar]} (css/get-classnames Root)]
       (dom/div #js {:key react-key}
-        (dom/div nil
+        (dom/div #js {:className (cs Root "main-container")}
           (dom/div #js {:className main-row}
             (dom/div #js {:className action-title} "Youtube Gmail Queue")
             (dom/div #js {:className "flex-space"})
@@ -351,16 +385,26 @@
             (center-text "No videos left to watch.")
 
             :else
-            (dom/div nil
-              (dom/div #js {:className video-chooser}
-                (main-view-link #:ui{:label     "Latest Uploads"
-                                     :main-view ::main-view.latest
-                                     :component this})
-                (main-view-link #:ui{:label     "Channels"
-                                     :main-view ::main-view.channels
-                                     :component this}))
-              (case main-view
-                ::main-view.latest (mapv queued-video queue)
-                ::main-view.channels (mapv category-group list)))))))))
+            [(dom/div #js {:className video-chooser :key "view-selector"}
+               (main-view-link #:ui{:label     "Latest Uploads"
+                                    :main-view ::main-view.latest
+                                    :component this})
+               (main-view-link #:ui{:label     "Channels"
+                                    :main-view ::main-view.channels
+                                    :component this}))
+             (dom/div #js {:className remaining-bar :key "remaining"}
+               (->> queue
+                    (remove ::video/watched?)
+                    (map (comp duration->seconds ::video/duration ::video/content-details))
+                    (reduce +)
+                    (seconds->duration))
+               " left to watch")
+             (dom/div #js {:key "view" :className (cs Root "view-area")}
+               (case main-view
+                 ::main-view.latest (mapv queued-video queue)
+                 ::main-view.channels (mapv category-group list)))]))))))
 
 (css/upsert-css "ygq" Root)
+
+(comment
+  )
